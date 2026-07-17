@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <record id="ir_cron_poll_mvamelding_receipts" model="ir.cron">
+        <field name="name">MVA-melding: poll kvittering fra Skatteetaten</field>
+        <field name="model_id" ref="model_l10n_no_mvamelding"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_poll_pending_receipts()</field>
+        <field name="interval_number">2</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+    <record id="ir_cron_complete_mvamelding_submissions" model="ir.cron">
+        <field name="name">MVA-melding: fullfør innsending når Altinn-instans er klar</field>
+        <field name="model_id" ref="model_l10n_no_mvamelding"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_complete_submissions()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">minutes</field>
+        <field name="active" eval="True"/>
+    </record>
+</odoo>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_idporten_session_list" model="ir.ui.view">
+        <field name="name">l10n.no.eristo.idporten.session.list</field>
+        <field name="model">l10n.no.eristo.idporten.session</field>
+        <field name="arch" type="xml">
+            <list string="ID-porten sessions" create="false" edit="false">
+                <field name="create_date"/>
+                <field name="company_id"/>
+                <field name="target_model"/>
+                <field name="target_res_id"/>
+                <field name="callback_method"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'completed'"
+                       decoration-info="status == 'authenticated'"
+                       decoration-warning="status == 'pending'"
+                       decoration-danger="status in ('failed','expired')"/>
+                <field name="completed_at" optional="hide"/>
+                <field name="error_code" optional="hide"/>
+                <field name="eristo_session_id" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_idporten_session_form" model="ir.ui.view">
+        <field name="name">l10n.no.eristo.idporten.session.form</field>
+        <field name="model">l10n.no.eristo.idporten.session</field>
+        <field name="arch" type="xml">
+            <form create="false" edit="false">
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="status"/>
+                            <field name="create_date"/>
+                            <field name="completed_at"/>
+                            <field name="expires_at"/>
+                            <field name="company_id"/>
+                        </group>
+                        <group>
+                            <field name="target_model"/>
+                            <field name="target_res_id"/>
+                            <field name="callback_method"/>
+                            <field name="state"/>
+                            <field name="eristo_session_id"/>
+                            <field name="pid" groups="base.group_no_one"/>
+                        </group>
+                    </group>
+                    <group string="Feil" invisible="not error_code">
+                        <field name="error_code"/>
+                        <field name="error_message"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_idporten_session" model="ir.actions.act_window">
+        <field name="name">ID-porten sessions (audit)</field>
+        <field name="res_model">l10n.no.eristo.idporten.session</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <menuitem id="menu_idporten_session"
+              name="ID-porten sessions"
+              parent="base.menu_administration"
+              action="action_idporten_session"
+              sequence="200"
+              groups="base.group_system"/>
+</odoo>

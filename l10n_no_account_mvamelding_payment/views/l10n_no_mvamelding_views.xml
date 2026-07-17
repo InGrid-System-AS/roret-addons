@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Legger betalingsordre-steget på MVA-melding-formen (kjernen er
+         core-only og kjenner ikke OCA-feltene). -->
+    <record id="view_l10n_no_mvamelding_form_payment" model="ir.ui.view">
+        <field name="name">l10n.no.mvamelding.form.payment</field>
+        <field name="model">l10n.no.mvamelding</field>
+        <field name="inherit_id"
+               ref="l10n_no_account_mvamelding.view_l10n_no_mvamelding_form"/>
+        <field name="arch" type="xml">
+            <button name="action_bokfor_oppgjor" position="after">
+                <button name="action_opprett_betaling" type="object"
+                        string="Opprett betaling" class="oe_highlight"
+                        invisible="state != 'mottatt' or betaling_order_id or not oppgjor_move_id"/>
+            </button>
+            <field name="oppgjor_move_id" position="after">
+                <field name="betaling_order_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

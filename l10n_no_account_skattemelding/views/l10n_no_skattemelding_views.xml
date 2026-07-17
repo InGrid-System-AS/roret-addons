@@ -1,0 +1,576 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l10n_no_skattemelding_form" model="ir.ui.view">
+        <field name="name">l10n.no.skattemelding.form</field>
+        <field name="model">l10n.no.skattemelding</field>
+        <field name="arch" type="xml">
+            <form string="Skattemelding">
+                <header>
+                    <button name="action_l10n_no_skattemelding_test_connection"
+                            string="Test forbindelse"
+                            type="object"
+                            invisible="state in ('submitted', 'mottatt')"
+                            help="Verifiser at Maskinporten + Altinn + Skatteetaten-API svarer korrekt før innsending"/>
+                    <button name="action_l10n_no_skattemelding_fetch_partsnummer"
+                            string="Hent partsnummer fra Skatteetaten"
+                            type="object"
+                            invisible="partsnummer or state in ('submitted', 'mottatt')"/>
+                    <button name="action_l10n_no_skattemelding_setup_mapping"
+                            string="Sett opp kontomapping"
+                            type="object"
+                            invisible="not partsnummer or state in ('submitted', 'mottatt')"
+                            help="Auto-foreslår Skatteetaten-kodetyper for alle konti med bevegelser i inntektsåret, og åpner en liste der du kan korrigere + verifisere mappingen. Erstatter den klønete 'gå til Kontoplan + manuell mapping'-flyten."/>
+                    <button name="action_l10n_no_skattemelding_build_xml"
+                            string="Generer XML"
+                            type="object"
+                            class="btn-primary"
+                            invisible="not partsnummer or state in ('submitted', 'mottatt')"/>
+                    <button name="action_l10n_no_skattemelding_create_closing_entry"
+                            string="Opprett avslutningsbilag"
+                            type="object"
+                            invisible="state not in ('built', 'validated', 'feilet') or not skattemelding_xml or closing_entry_id"
+                            help="Lager årsavslutningsbilag som lukker P&amp;L til 8800 og overfører resultatet til 2050 (overskudd) eller 2080 (underskudd) i balansen. Bilaget åpnes som utkast — bruker poster manuelt etter review. Tilgjengelig kun før XML er sendt til Altinn (uploaded/submitted/mottatt) for å unngå inkonsistens."/>
+                    <button name="action_l10n_no_skattemelding_validate"
+                            string="Valider mot Skatteetaten"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state in ('draft', 'submitted', 'mottatt') or not skattemelding_xml"/>
+                    <button name="action_l10n_no_skattemelding_open_submit_wizard"
+                            string="Send til Altinn for signering"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'validated'"
+                            help="Laster opp skattemelding-utkast til Altinn 3. Bruker må deretter signere i Altinn-portalen."/>
+                    <button name="action_l10n_no_skattemelding_open_in_altinn"
+                            string="Åpne i Altinn for signering"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'uploaded'"
+                            help="Åpner skattemelding-utkastet i Altinn-portalen. Logg inn med BankID, sjekk dataen, og klikk 'Send inn' i Altinn."/>
+                    <button name="action_l10n_no_skattemelding_resend_to_altinn"
+                            string="Send oppdatert utkast til Altinn"
+                            type="object"
+                            class="btn-warning"
+                            invisible="state != 'uploaded' or not requires_resend"
+                            help="Erstatter eksisterende utkast i Altinn med nyeste XML fra Odoo. Brukes etter at du har rettet bilag eller mappinger etter første upload. Sletter gammelt data-element og laster opp på nytt — sliker at Altinn-preview og Odoo henger sammen før signering."/>
+                    <button name="action_l10n_no_skattemelding_fetch_receipt"
+                            string="Sjekk status hos Altinn"
+                            type="object"
+                            invisible="state not in ('uploaded', 'submitted') or skatteetaten_endelig_status == 'godkjent'"
+                            help="Sjekker om brukeren har signert i Altinn — oppdaterer state hvis ja. Automatisk polling kjører hvert 10. sekund i 5 minutter etter upload."/>
+                    <button name="action_l10n_no_skattemelding_fetch_tilbakemelding"
+                            string="Hent tilbakemelding på nytt"
+                            type="object"
+                            invisible="state != 'mottatt' or skatteetaten_endelig_status == 'godkjent'"
+                            help="Henter Skatteetatens vedtak (tilbakemelding.xml) fra Altinn — brukes hvis auto-fetch feilet eller resultatet er ufullstendig"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,built,validated,uploaded,submitted,mottatt"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_l10n_no_skattemelding_open_closing_entry"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-book"
+                                invisible="not closing_entry_id">
+                            <field name="closing_entry_count" widget="statinfo"
+                                   string="Avslutningsbilag"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="display_name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <!-- Skatteetaten godkjent — endelig suksess -->
+                    <div class="alert alert-success" role="alert"
+                         invisible="skatteetaten_endelig_status != 'godkjent'">
+                        <strong>✓ Skattemelding godkjent av Skatteetaten</strong>
+                        — Innsendingen er endelig levert og arkivert.
+                        Se Validering-fanen for full kvittering.
+                    </div>
+                    <!-- XML stale pga nylig postet closing — krever regenerering -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="not xml_stale_due_to_closing">
+                        <strong>⚠ XML er foreldet</strong> — Avslutningsbilag
+                        ble postet etter at XML ble generert. Klikk
+                        <i>Generer XML</i> på nytt så balansen i innsendingen
+                        reflekterer ekte 2050/2080-saldoer fra bilaget.
+                    </div>
+                    <!-- XML er endret etter upload til Altinn — re-send påkrevd
+                         før signering for at preview skal matche Odoo -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="not requires_resend or state != 'uploaded'">
+                        <strong>⚠ Skattemelding-XML er endret etter upload til Altinn</strong>
+                        <p style="margin:8px 0 4px 0;">
+                            Du har generert XML på nytt etter at utkastet ble
+                            lastet opp til Altinn. Altinn-preview viser fortsatt
+                            den gamle versjonen. Før du signerer:
+                        </p>
+                        <ol style="margin-bottom:8px;">
+                            <li>(Valgfritt) Klikk <b>"Valider mot Skatteetaten"</b>
+                                for å verifisere at ny XML er gyldig</li>
+                            <li>Klikk <b>"Send oppdatert utkast til Altinn"</b>
+                                — Odoo sletter gammel data og laster opp ny</li>
+                            <li>Hard reload Altinn-fanen
+                                (Cmd/Ctrl+Shift+R) → preview viser nå
+                                oppdatert XML</li>
+                            <li>Signer som vanlig</li>
+                        </ol>
+                    </div>
+                    <!-- Skatteetaten avvist — krever handling -->
+                    <div class="alert alert-danger" role="alert"
+                         invisible="skatteetaten_endelig_status != 'avvist'">
+                        <strong>✗ Skatteetaten avviste innsendingen</strong>
+                        — Innsendingen er IKKE godkjent.
+                        Se Validering-fanen for årsak og full tilbakemelding.
+                        Lag korreksjons-innsending etter at feilen er rettet.
+                        <field name="altinn_substatus_description"
+                               nolabel="1" readonly="1"
+                               invisible="not altinn_substatus_description"
+                               style="display:block;margin-top:4px;"/>
+                    </div>
+                    <!-- Mottatt men ukjent status (sjelden) -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="skatteetaten_endelig_status != 'ukjent'">
+                        <strong>⚠ Mottatt, men Skatteetatens vedtak er ukjent</strong>
+                        — Altinn har arkivert instansen, men vi klarte ikke
+                        å tolke tilbakemeldingen. Klikk "Hent tilbakemelding"
+                        på nytt, eller kontakt support.
+                    </div>
+                    <!-- Uploaded + Task_1 (eller ikke kjent) — venter på
+                         bruker-signering i Altinn. Vis full 6-stegs
+                         instruks for førstegangs-brukere. -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="state != 'uploaded' or altinn_process_current_task not in (False, 'Task_1')">
+                        <strong>📋 Utkast lastet opp i Altinn — venter på din signering</strong>
+                        <p style="margin:8px 0 4px 0;">
+                            For å fullføre innsendingen:
+                        </p>
+                        <ol style="margin-bottom:8px;">
+                            <li>Klikk <b>"Åpne i Altinn for signering"</b> i toppmenyen
+                                (åpnes i ny fane)</li>
+                            <li>Logg inn på altinn.no med <b>BankID</b></li>
+                            <li>Klikk <b>"Videre til kontroll av opplysninger"</b></li>
+                            <li>Klikk <b>"Se opplysninger og send inn"</b> (åpner Skatteetatens visning)</li>
+                            <li>Klikk <b>"Send inn"</b> i Skatteetatens visning</li>
+                            <li>Lukk Altinn-fanen og kom tilbake hit —
+                                vi sjekker status automatisk hvert 10. sekund</li>
+                        </ol>
+                        <p style="margin:8px 0 0 0;font-size:0.9em;color:#666;">
+                            <b>Ignorer tidligere innsendinger</b> du måtte se i
+                            Altinn-innboksen — vi sjekker kun den nye.
+                        </p>
+                        <p style="margin:4px 0 0 0;font-size:0.9em;color:#666;">
+                            Hvorfor må jeg gjøre dette i Altinn? Skatteetaten krever
+                            spor til en fysisk underskriver (BankID-pålogging) for
+                            juridisk bindende innsendinger. Dette er bransjestandard —
+                            Visma, Tripletex og andre fungerer på samme måte.
+                        </p>
+                    </div>
+                    <!-- Uploaded + Task_2 — bruker har klikket "Videre" men
+                         ikke "Send inn" ennå. Kortere melding fordi bruker
+                         allerede er midt i flyten. -->
+                    <div class="alert alert-warning" role="alert"
+                         invisible="state != 'uploaded' or altinn_process_current_task != 'Task_2'">
+                        <strong>⏳ Venter på din endelige bekreftelse i Altinn</strong>
+                        <p style="margin:8px 0 0 0;">
+                            Du har klikket "Videre til kontroll" i Altinn, men
+                            innsendingen er ikke endelig før du klikker
+                            <b>"Send inn"</b> i Skatteetatens visning.
+                        </p>
+                        <ol style="margin-bottom:0;">
+                            <li>Gå tilbake til Altinn-fanen (eller klikk
+                                <b>"Åpne i Altinn for signering"</b> igjen)</li>
+                            <li>Klikk <b>"Se opplysninger og send inn"</b></li>
+                            <li>Klikk <b>"Send inn"</b> i Skatteetatens visning</li>
+                        </ol>
+                    </div>
+                    <!-- Skjult auto-polling-widget. Mounter når state in
+                         (uploaded, submitted) og poller fetch_receipt
+                         hvert 10. sek i 5 min. -->
+                    <widget name="skattemelding_poller"
+                            invisible="state not in ('uploaded', 'submitted')"/>
+                    <!-- Submitted — bruker har signert, venter på Skatteetaten -->
+                    <div class="alert alert-info" role="alert"
+                         invisible="state != 'submitted'">
+                        <strong>✓ Signert og sendt inn — venter på kvittering</strong>
+                        — Skatteetaten behandler innsendingen.
+                        Kvittering kommer typisk innen 3–10 minutter
+                        (auto-polles av bakgrunnsjobb).
+                    </div>
+                    <!-- Sjekkliste-banner med konkrete neste steg.
+                         Vises kun før innsending. uploaded er kort
+                         mellomtilstand etter upload-data men før
+                         advance_process — checklist er ikke relevant der. -->
+                    <field name="onboarding_checklist"
+                           nolabel="1" readonly="1"
+                           invisible="state in ('uploaded', 'submitted', 'mottatt')"/>
+                    <!-- Kort merknad om advisory-veiledninger (etter validering).
+                         Tre opplysninger som er valgfrie i XSD (minOccurs=0)
+                         men anbefales for full rapportering. -->
+                    <div class="alert alert-light" role="alert"
+                         invisible="state not in ('feilet', 'validated', 'uploaded')">
+                        <strong>Merk:</strong> Skatteetaten gir typisk 3
+                        ikke-blokkerende veiledninger (<i>merknadStandard</i>)
+                        for manglende selskaps-opplysninger,
+                        verdi bak aksjene og egenkapitalavstemming. Disse er
+                        kun råd — innsending lykkes uavhengig. Detaljerte
+                        veiledninger vises i Validering-fanen.
+                    </div>
+                    <group>
+                        <group string="Innsending">
+                            <!-- Selskap skjult: dobbelt vist i form-tittel
+                                 ('Eristo AS skattemelding 2025') og company-
+                                 switcher øverst til høyre. Beholdes som felt
+                                 for record-skapelse (no_create=True) men
+                                 invisible i form-visning. -->
+                            <field name="company_id"
+                                   options="{'no_create': True}"
+                                   invisible="1"/>
+                            <field name="inntektsaar" widget="text"/>
+                            <!-- samlet_verdi_aksjer skjult inntil Phase D
+                                 v5-XSD er implementert. Felt eksisterer
+                                 i modellen for å bevare data ved retest. -->
+                            <field name="currency_id" invisible="1"/>
+                            <!-- Skjul tomt erstatter-felt — vises kun
+                                 hvis dette er en faktisk korreksjon. -->
+                            <field name="erstatter_skattemelding_id"
+                                   options="{'no_create': True}"
+                                   invisible="not erstatter_skattemelding_id"
+                                   help="Brukes kun ved KORREKSJONS-innsending — pek på opprinnelig skattemelding-record som denne erstatter."/>
+                        </group>
+                        <group string="Skatteetaten-identifikatorer"
+                               invisible="state == 'draft'"
+                               help="Partsnummer/dokumentidentifikator er Skatteetatens interne ID-er som brukes for korreksjons-innsendinger. Sendt inn = når Altinn registrerte signering, Kvittering mottatt = når Skatteetaten bekreftet behandling.">
+                            <!-- B6: Samlet help-tekst på gruppen istedenfor
+                                 4 separate '?'-tooltips. Mindre visuell støy. -->
+                            <field name="partsnummer"
+                                   readonly="state != 'draft'"
+                                   help=""/>
+                            <field name="dokumentidentifikator"
+                                   invisible="not dokumentidentifikator"
+                                   readonly="1"
+                                   help=""/>
+                            <field name="submitted_at"
+                                   widget="datetime"
+                                   invisible="not submitted_at"
+                                   readonly="1"
+                                   options="{'format': 'DD.MM.YYYY HH:mm:ss'}"
+                                   help=""/>
+                            <field name="mottatt_at"
+                                   widget="datetime"
+                                   invisible="not mottatt_at"
+                                   readonly="1"
+                                   options="{'format': 'DD.MM.YYYY HH:mm:ss'}"
+                                   help=""/>
+                            <!-- Altinn tekniske ID-er — kun for support/debug,
+                                 ikke synlig som hovedinfo. -->
+                            <field name="altinn_instance_owner_party_id"
+                                   invisible="not altinn_instance_owner_party_id"
+                                   readonly="1"
+                                   groups="base.group_no_one"/>
+                            <field name="altinn_instance_guid"
+                                   invisible="not altinn_instance_guid"
+                                   readonly="1"
+                                   groups="base.group_no_one"/>
+                            <field name="altinn_data_guid"
+                                   invisible="not altinn_data_guid"
+                                   readonly="1"
+                                   groups="base.group_no_one"/>
+                            <field name="altinn_process_current_task"
+                                   invisible="not altinn_process_current_task"
+                                   readonly="1"
+                                   groups="base.group_no_one"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Anleggsmidler (saldoavskrevet)"
+                              name="anleggsmidler"
+                              groups="account.group_account_user">
+                            <div style="margin-bottom:8px;"
+                                 invisible="state in ('submitted', 'mottatt')">
+                                <button name="action_l10n_no_skattemelding_roll_forward"
+                                        type="object"
+                                        string="Roll forward fra fjorår"
+                                        class="btn-secondary"
+                                        help="Kopier anleggsmidler + forskjeller fra forrige års skattemelding. IB-verdier settes til fjorårets UB. Nyanskaffelse/endring må settes manuelt etterpå."
+                                        confirm="Dette kopierer alle anleggsmidler og forskjeller fra fjorårets skattemelding. Kun mulig hvis denne skattemeldingen er tom (ingen records). Fortsett?"/>
+                            </div>
+                            <field name="anleggsmiddel_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="saldogruppe"/>
+                                    <field name="avskrivningssats" optional="show"/>
+                                    <field name="ervervsdato" optional="show"/>
+                                    <field name="inngaaende_verdi" sum="Sum IB"/>
+                                    <field name="nyanskaffelse" sum="Sum nyanskaffelse"/>
+                                    <field name="aarets_avskrivning" sum="Sum avskr." readonly="0"/>
+                                    <field name="utgaaende_verdi" sum="Sum UB" readonly="0"/>
+                                    <field name="er_fysisk" optional="hide"/>
+                                    <field name="account_id" optional="hide"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <!-- A3 fix: empty-state placeholder når listen er
+                                 tom OG innsendingen er ferdigstilt. Hindrer
+                                 anxiety om at "noe mangler" for selskap uten
+                                 anleggsmidler (Eristo har null). -->
+                            <div class="alert alert-light text-center" role="alert"
+                                 invisible="anleggsmiddel_ids or state in ('draft', 'built', 'validated', 'feilet')"
+                                 style="padding:24px;">
+                                <p style="margin:0;color:#666;">
+                                    <i>Ingen anleggsmidler registrert.</i>
+                                </p>
+                                <p style="margin:4px 0 0 0;font-size:0.9em;color:#888;">
+                                    Kun aktuelt for selskap med goodwill, biler,
+                                    maskiner eller andre saldoavskrevne eiendeler.
+                                </p>
+                            </div>
+                            <!-- A2 fix: regnskap-norsk informasjon istedenfor
+                                 utvikler-jargon. Kun vist i editable states. -->
+                            <div class="alert alert-info" role="alert"
+                                 invisible="state in ('submitted', 'mottatt')">
+                                <strong>Hva er saldoavskrivning?</strong>
+                                Eiendeler som avskrives etter saldoprinsippet
+                                (skatteloven §14-43). Mest vanlig:
+                                <b>goodwill</b> (saldogruppe B, 20%),
+                                <b>biler</b> (gruppe C, 24%), <b>maskiner</b>
+                                (gruppe D, 20%). Inngående verdi er fjorårets
+                                utgående saldo (UB).
+                                <p style="margin:8px 0 0 0;">
+                                    <b>Roll forward fra fjorår</b>-knappen kopierer
+                                    alle eiendeler fra forrige års skattemelding
+                                    og setter IB = forrige UB automatisk.
+                                </p>
+                            </div>
+                        </page>
+                        <page string="Forskjeller regnskap vs skatt"
+                              name="forskjeller"
+                              groups="account.group_account_user">
+                            <field name="forskjell_ids">
+                                <list editable="bottom">
+                                    <field name="type"/>
+                                    <field name="name"/>
+                                    <field name="anleggsmiddel_id" optional="show"
+                                           domain="[('skattemelding_id', '=', parent.id)]"/>
+                                    <field name="inngaaende_verdi" sum="Sum IB"/>
+                                    <field name="aarets_endring" sum="Sum endring"/>
+                                    <field name="utgaaende_verdi" sum="Sum UB" readonly="0"/>
+                                    <field name="currency_id" column_invisible="1"/>
+                                </list>
+                            </field>
+                            <!-- Empty-state for ferdigstilte uten forskjeller -->
+                            <div class="alert alert-light text-center" role="alert"
+                                 invisible="forskjell_ids or state in ('draft', 'built', 'validated', 'feilet')"
+                                 style="padding:24px;">
+                                <p style="margin:0;color:#666;">
+                                    <i>Ingen forskjeller mellom regnskap og skatt.</i>
+                                </p>
+                                <p style="margin:4px 0 0 0;font-size:0.9em;color:#888;">
+                                    Typisk for selskap der regnskapsmessig avskrivning
+                                    følger skattemessig.
+                                </p>
+                            </div>
+                            <!-- A2-stil: regnskap-norsk i editable states -->
+                            <div class="alert alert-info" role="alert"
+                                 invisible="state in ('submitted', 'mottatt')">
+                                <strong>Hva er regnskap/skatt-forskjeller?</strong>
+                                Når regnskapet bruker andre avskrivningstakter
+                                enn skatteetaten godtar. Typisk: <b>goodwill</b>
+                                avskrives lineært i regnskapet (eks. 5-10 år)
+                                men skattemessig etter saldogruppe B (20% av
+                                restverdi per år). Differansen er en
+                                midlertidig forskjell.
+                            </div>
+                        </page>
+                        <!-- P3 #10: konsolidert XML-detaljer i én tab.
+                             Tidligere tre separate tabs (skattemelding /
+                             næringsspesifikasjon / konvolutt) tok unødvendig
+                             plass. Nå én tab med expandable seksjoner per
+                             dokument-type. -->
+                        <page string="XML-detaljer"
+                              name="xml_details"
+                              invisible="not skattemelding_xml and not naeringsspesifikasjon_xml and not konvolutt_xml">
+                            <div class="alert alert-info" role="alert"
+                                 style="margin-bottom:12px;">
+                                Tre dokumenter pakkes i innsendingen:
+                                <b>skattemelding</b> (skatte-/fradragsdata),
+                                <b>næringsspesifikasjon</b> (regnskap+balanse)
+                                og <b>konvolutt</b> (base64-pakket samlepakke
+                                som faktisk sendes til Skatteetaten).
+                            </div>
+                            <group string="Skattemelding XML"
+                                   invisible="not skattemelding_xml"
+                                   name="skattemelding_xml_group">
+                                <button name="action_l10n_no_skattemelding_download_xml"
+                                        type="object"
+                                        string="Last ned skattemelding.xml"
+                                        context="{'xml_type': 'skattemelding'}"
+                                        class="btn-secondary"
+                                        style="margin-bottom:8px;"/>
+                                <field name="skattemelding_xml_display"
+                                       widget="text"
+                                       nolabel="1" readonly="1"/>
+                            </group>
+                            <group string="Næringsspesifikasjon XML"
+                                   invisible="not naeringsspesifikasjon_xml"
+                                   name="naeringsspesifikasjon_xml_group">
+                                <button name="action_l10n_no_skattemelding_download_xml"
+                                        type="object"
+                                        string="Last ned næringsspesifikasjon.xml"
+                                        context="{'xml_type': 'naeringsspesifikasjon'}"
+                                        class="btn-secondary"
+                                        style="margin-bottom:8px;"/>
+                                <field name="naeringsspesifikasjon_xml_display"
+                                       widget="text"
+                                       nolabel="1" readonly="1"/>
+                            </group>
+                            <group string="Konvolutt XML (samlet pakke)"
+                                   invisible="not konvolutt_xml"
+                                   name="konvolutt_xml_group">
+                                <button name="action_l10n_no_skattemelding_download_xml"
+                                        type="object"
+                                        string="Last ned konvolutt.xml"
+                                        context="{'xml_type': 'konvolutt'}"
+                                        class="btn-secondary"
+                                        style="margin-bottom:8px;"/>
+                                <field name="konvolutt_xml_display"
+                                       widget="text"
+                                       nolabel="1" readonly="1"/>
+                            </group>
+                        </page>
+                        <!-- A1 fix: autofocus="autofocus" gjør Validering til
+                             default-tab når den er synlig (state>=uploaded).
+                             Odoo fallbacker til første synlige tab hvis denne
+                             er invisible — for draft/built faller den derfor
+                             tilbake til Anleggsmidler. -->
+                        <page string="Validering"
+                              name="validering"
+                              autofocus="autofocus"
+                              invisible="not last_response">
+                            <!-- valideringsjobb_* aktiveres av Phase 5
+                                 (async validering via Altinn). Phase 1
+                                 bruker synkron validertest så feltene er
+                                 tomme — skjul til de fylles. -->
+                            <group invisible="not valideringsjobb_id">
+                                <field name="valideringsjobb_id"/>
+                                <field name="valideringsjobb_started_at"/>
+                                <field name="valideringsjobb_completed_at"/>
+                            </group>
+                            <!-- Lesbart sammendrag — vises alltid når
+                                 last_response finnes. -->
+                            <field name="validation_summary"
+                                   nolabel="1"
+                                   readonly="1"/>
+                        </page>
+                        <!-- Rå respons flyttet til egen tab (P1 #5):
+                             debugging/support-info som rådata fra
+                             Skatteetaten + Altinn. Skjult i hovedflyten
+                             så brukeren ikke distraheres av 30kb XML/JSON. -->
+                        <page string="Diagnostikk (rå respons)"
+                              name="diagnostikk"
+                              invisible="not last_response">
+                            <div class="alert alert-info" role="alert"
+                                 style="margin-bottom:8px;">
+                                <strong>Kun for support og feilsøking.</strong>
+                                Dette er rå-responsen fra Skatteetaten +
+                                Altinn API-er. Vanlige brukere trenger
+                                ikke dette — bruk Validering-fanen for
+                                lesbart sammendrag.
+                            </div>
+                            <field name="last_response"
+                                   widget="text"
+                                   nolabel="1"
+                                   readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <!-- Chatter: viser audit-trail med state-endringer,
+                     auto-arkiverte vedlegg (kvittering, tilbakemelding,
+                     skattemelding-XML) og posten ved Skatteetaten-vedtak.
+                     Bransjestandard: Tripletex, Visma, Maestro arkiverer
+                     også kvittering på klient-record for revisjon. -->
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_l10n_no_skattemelding_list" model="ir.ui.view">
+        <field name="name">l10n.no.skattemelding.list</field>
+        <field name="model">l10n.no.skattemelding</field>
+        <field name="arch" type="xml">
+            <list string="Skattemeldinger">
+                <field name="company_id" optional="show"/>
+                <field name="inntektsaar" widget="text"/>
+                <field name="state" widget="badge"
+                       decoration-success="state in ('validated','submitted')"
+                       decoration-info="state in ('built','uploaded')"
+                       decoration-warning="state == 'feilet'"
+                       decoration-muted="state == 'draft'"/>
+                <field name="skatteetaten_endelig_status" widget="badge"
+                       optional="show"
+                       decoration-success="skatteetaten_endelig_status == 'godkjent'"
+                       decoration-danger="skatteetaten_endelig_status == 'avvist'"
+                       decoration-warning="skatteetaten_endelig_status == 'ukjent'"
+                       decoration-muted="skatteetaten_endelig_status == 'pending'"/>
+                <field name="submitted_at" optional="show"/>
+                <field name="mottatt_at" optional="show"/>
+                <field name="partsnummer" optional="hide"/>
+                <field name="dokumentidentifikator" optional="hide"/>
+                <field name="avvik_count" optional="hide"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_l10n_no_skattemelding" model="ir.actions.act_window">
+        <field name="name">Skattemelding</field>
+        <field name="res_model">l10n.no.skattemelding</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Ingen skattemeldinger registrert
+            </p>
+            <p>
+                Klikk "Ny" for å opprette en skattemelding-innsending for et
+                inntektsår. Modulen genererer skattemelding + næringsspesifikasjon
+                fra Odoo-regnskapet og sender til Skatteetaten via Altinn 3.
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_l10n_no_skattemelding"
+              name="Skattemelding"
+              parent="account.menu_finance_reports"
+              action="action_l10n_no_skattemelding"
+              sequence="200"
+              groups="account.group_account_user"/>
+
+    <!-- Kodetype-vedlikehold (admin) -->
+    <record id="view_l10n_no_skattemelding_kodetype_list" model="ir.ui.view">
+        <field name="name">l10n.no.skattemelding.kodetype.list</field>
+        <field name="model">l10n.no.skattemelding.kodetype</field>
+        <field name="arch" type="xml">
+            <list string="Skatteetaten kontotyper" editable="bottom">
+                <field name="code"/>
+                <field name="name"/>
+                <field name="kategori"/>
+                <field name="underkategori"/>
+                <field name="inntektsaar"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_l10n_no_skattemelding_kodetype" model="ir.actions.act_window">
+        <field name="name">Skatteetaten kontotyper</field>
+        <field name="res_model">l10n.no.skattemelding.kodetype</field>
+        <field name="view_mode">list</field>
+    </record>
+
+    <menuitem id="menu_l10n_no_skattemelding_kodetype"
+              name="Skattemelding kontotyper"
+              parent="account.account_account_menu"
+              action="action_l10n_no_skattemelding_kodetype"
+              sequence="100"
+              groups="account.group_account_manager"/>
+</odoo>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="0">
+        <!--
+            Multi-company isolation for l10n.no.skattemelding.
+
+            Uten denne ir.rule'en ville en bruker som er logget inn på
+            Roret AS-kontekst likevel se Gamify AS sin skattemelding,
+            fordi company_id-feltet alene ikke filtrerer record-listen.
+
+            'in', company_ids matcher Odoo-standarden: tar hensyn til
+            multi-company-velgeren øverst til høyre i UI (kan ha flere
+            selskap valgt samtidig).
+
+            global=True gjør at regelen gjelder uavhengig av brukerens
+            grupper — vanlig praksis for multi-company-isolasjon.
+
+            Inherited modeller (kvittering, validate, submit, closing,
+            xml-service) bruker samme model_id og er dekket automatisk
+            siden ir.rule slår inn på modell-laget.
+        -->
+        <record id="l10n_no_skattemelding_rule_multicompany" model="ir.rule">
+            <field name="name">l10n.no.skattemelding: multi-company</field>
+            <field name="model_id" ref="model_l10n_no_skattemelding"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+        <!-- P0-fix 2026-05-18 fra code review: ir.rule CASCADER IKKE
+             gjennom Many2one. Anleggsmiddel og forskjell-rader trenger
+             egne regler for multi-company-isolasjon. company_id på
+             begge er related store=True fra skattemelding_id. -->
+        <record id="l10n_no_skattemelding_anleggsmiddel_rule_multicompany" model="ir.rule">
+            <field name="name">l10n.no.skattemelding.anleggsmiddel: multi-company</field>
+            <field name="model_id" ref="model_l10n_no_skattemelding_anleggsmiddel"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+
+        <record id="l10n_no_skattemelding_forskjell_rule_multicompany" model="ir.rule">
+            <field name="name">l10n.no.skattemelding.forskjell: multi-company</field>
+            <field name="model_id" ref="model_l10n_no_skattemelding_forskjell"/>
+            <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+            <field name="global" eval="True"/>
+        </record>
+    </data>
+</odoo>

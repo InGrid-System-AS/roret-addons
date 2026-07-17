@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Legg MVA-melding-aktiveringen INNE i den eksisterende «Skatteetaten-
+         tilkobling»-fanen (fra l10n_no_eristo_base), sammen med resten av
+         Skatteetaten-konfigen — ikke som en egen seksjon under hele skjemaet.
+         (Tidligere xpath mot //sheet havnet etter notebook-en og vistes derfor
+         nederst uansett aktiv fane.) Arver eristo-base-viewet direkte så fanen
+         garantert finnes. -->
+    <record id="view_company_form_mvamelding" model="ir.ui.view">
+        <field name="name">res.company.form.mvamelding</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id"
+               ref="l10n_no_eristo_base.view_res_company_form_l10n_no_eristo"/>
+        <field name="arch" type="xml">
+            <xpath expr="//page[@name='l10n_no_eristo']" position="inside">
+                <group string="MVA-melding (Skatteetaten)" name="mvamelding">
+                    <field name="l10n_no_mvamelding_aktivert"/>
+                    <button name="action_l10n_no_mvamelding_activate"
+                            type="object" string="Aktiver MVA-melding"
+                            class="btn-primary"
+                            invisible="l10n_no_mvamelding_aktivert"/>
+                    <field name="l10n_no_mva_submit_mode" widget="radio"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="view_l10n_no_mvamelding_list" model="ir.ui.view">
+        <field name="name">l10n.no.mvamelding.list</field>
+        <field name="model">l10n.no.mvamelding</field>
+        <field name="arch" type="xml">
+            <list string="MVA-meldinger">
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="aar"/>
+                <field name="periode"/>
+                <field name="fastsatt_mva"/>
+                <field name="avvik_count"/>
+                <field name="state"
+                       decoration-info="state == 'submitting'"
+                       decoration-success="state in ('validated','submitted','mottatt')"
+                       decoration-danger="state in ('avvist','error')"
+                       widget="badge"/>
+                <field name="currency_id" column_invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_l10n_no_mvamelding_form" model="ir.ui.view">
+        <field name="name">l10n.no.mvamelding.form</field>
+        <field name="model">l10n.no.mvamelding</field>
+        <field name="arch" type="xml">
+            <form string="MVA-melding">
+                <header>
+                    <button name="action_generate_xml" type="object"
+                            string="Generer XML" class="oe_highlight"
+                            invisible="state not in ('draft','generated','avvist','error')"/>
+                    <button name="action_submit" type="object"
+                            string="Send inn til Skatteetaten" class="oe_highlight"
+                            confirm="Sende mva-meldingen til Skatteetaten? Dette er en bindende innsending."
+                            invisible="state not in ('generated','avvist')"/>
+                    <button name="action_open_activation" type="object"
+                            string="Aktiver MVA-melding" class="btn-warning"
+                            invisible="company_mvamelding_aktivert"/>
+                    <button name="action_submit" type="object"
+                            string="Fullfør innsending nå"
+                            invisible="state != 'submitting'"/>
+                    <button name="action_fetch_receipt" type="object"
+                            string="Hent kvittering"
+                            invisible="state not in ('submitted','mottatt')"/>
+                    <!-- «Opprett betaling»-knappen (OCA betalingsordre) legges
+                         til av bro-modulen l10n_no_account_mvamelding_payment -->
+                    <button name="action_bokfor_oppgjor" type="object"
+                            string="Bokfør MVA-oppgjør"
+                            confirm="Bokføre oppgjørsbilaget? MVA-kontoene tømmes mot oppgjørskontoen (2740) for terminen."
+                            invisible="state not in ('generated','submitting','submitted','mottatt') or oppgjor_move_id"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,generated,submitting,submitted,mottatt"/>
+                </header>
+                <sheet>
+                    <field name="company_mvamelding_aktivert" invisible="1"/>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="company_mvamelding_aktivert">
+                        Selskapet er ikke aktivert for MVA-melding ennå. Du kan
+                        generere og kontrollere meldingen, men innsending krever
+                        at du klikker <b>Aktiver MVA-melding</b> og at daglig
+                        leder godkjenner systemtilgangen i Altinn.
+                    </div>
+                    <div class="alert alert-info" role="status"
+                         invisible="state != 'draft'">
+                        <b>Steg 1 av 2:</b> Klikk <b>Generer XML</b> for å hente
+                        terminens tall fra Tax Report.
+                    </div>
+                    <div class="alert alert-info" role="status"
+                         invisible="state not in ('generated',)">
+                        <b>Steg 2 av 2:</b> Kontroller spesifikasjonen under, og
+                        klikk <b>Send inn til Skatteetaten</b> (bindende).
+                    </div>
+                    <div class="alert alert-info" role="status"
+                         invisible="state != 'submitting'">
+                        Innsending startet. Fullføres automatisk så snart Altinn
+                        har klargjort instansen (vanligvis innen et par minutter).
+                        Du trenger ikke gjøre noe — status oppdateres til
+                        <b>Sendt inn</b> av seg selv.
+                    </div>
+                    <div class="alert alert-info" role="status"
+                         invisible="state != 'submitted'">
+                        Sendt inn. Venter på kvittering fra Skatteetaten — den
+                        hentes automatisk (kan ta noen minutter).
+                    </div>
+                    <div class="alert alert-success" role="status"
+                         invisible="state != 'mottatt'">
+                        Mottatt av Skatteetaten. Se betalingsinformasjon under
+                        fanen <b>Betaling</b>.
+                    </div>
+                    <div class="alert alert-danger" role="alert"
+                         invisible="state != 'avvist'">
+                        Avvist av Skatteetaten — se fanen <b>Avvik</b>. Rett
+                        bilagene, klikk <b>Generer XML</b> på nytt, og send inn
+                        igjen.
+                    </div>
+                    <div class="oe_title">
+                        <h1><field name="display_name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"/>
+                            <field name="aar"/>
+                            <field name="periode"/>
+                            <field name="meldingskategori"/>
+                        </group>
+                        <group>
+                            <field name="fastsatt_mva"/>
+                            <field name="avvik_count"
+                                   invisible="state != 'avvist'"/>
+                            <field name="xml_generated_at"/>
+                            <field name="submitted_at"/>
+                            <field name="mottatt_at"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Spesifikasjon" name="spesifikasjon"
+                              invisible="not linjer_oversikt_html">
+                            <field name="linjer_oversikt_html" readonly="1"/>
+                        </page>
+                        <page string="MVA-melding XML" name="mvamelding_xml">
+                            <field name="mvamelding_xml" widget="ace"
+                                   options="{'mode': 'xml'}" readonly="1"/>
+                        </page>
+                        <page string="Konvolutt XML" name="konvolutt_xml">
+                            <field name="konvolutt_xml" widget="ace"
+                                   options="{'mode': 'xml'}" readonly="1"/>
+                        </page>
+                        <page string="Avvik / valideringsresultat" name="validering"
+                              invisible="not valideringsresultat_xml">
+                            <field name="valideringsresultat_xml" widget="ace"
+                                   options="{'mode': 'xml'}" readonly="1"/>
+                        </page>
+                        <page string="Betaling" name="betaling">
+                            <group>
+                                <field name="betalingsbeloep"/>
+                                <field name="betalingsfrist"/>
+                                <field name="betalingskonto"/>
+                                <field name="betalings_kid"/>
+                            </group>
+                            <group string="Oppgjør" name="oppgjor">
+                                <field name="oppgjor_move_id"/>
+                                <!-- betaling_order_id legges til av bro-modulen
+                                     l10n_no_account_mvamelding_payment -->
+                            </group>
+                        </page>
+                        <page string="Teknisk" name="teknisk" groups="base.group_no_one">
+                            <group>
+                                <field name="regnskapssystemsreferanse"/>
+                                <field name="altinn_instance_owner_party_id"/>
+                                <field name="altinn_instance_guid"/>
+                                <field name="altinn_konvolutt_data_guid"/>
+                                <field name="altinn_mvamelding_data_guid"/>
+                                <field name="altinn_process_current_task"/>
+                            </group>
+                            <field name="last_response" readonly="1"/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_l10n_no_mvamelding" model="ir.actions.act_window">
+        <field name="name">MVA-meldinger</field>
+        <field name="res_model">l10n.no.mvamelding</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Opprett din første MVA-melding
+            </p>
+            <p>
+                Velg år og termin, klikk <b>Generer XML</b> for å hente tallene
+                fra Tax Report, kontroller spesifikasjonen, og klikk
+                <b>Send inn til Skatteetaten</b>. Første gang må selskapet
+                aktiveres for MVA-melding (Altinn-godkjenning av daglig leder).
+            </p>
+        </field>
+    </record>
+
+    <menuitem id="menu_l10n_no_mvamelding"
+              name="MVA-meldinger"
+              parent="account.menu_finance_reports"
+              action="action_l10n_no_mvamelding"
+              groups="account.group_account_user"
+              sequence="95"/>
+
+    <!-- (Enterprise-utgavens override av l10n_no_reports-innsendings-
+         wizarden er fjernet i Community/OCA-porten — flyten styres nå
+         fullt og helt fra MVA-melding-skjemaet over.) -->
+
+</odoo>

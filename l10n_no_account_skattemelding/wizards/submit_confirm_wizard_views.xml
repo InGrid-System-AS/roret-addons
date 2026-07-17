@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l10n_no_skattemelding_submit_confirm" model="ir.ui.view">
+        <field name="name">l10n.no.skattemelding.submit.confirm.form</field>
+        <field name="model">l10n.no.skattemelding.submit.confirm</field>
+        <field name="arch" type="xml">
+            <form string="Bekreft innsending">
+                <field name="skattemelding_id" invisible="1"/>
+                <field name="confirm_html" nolabel="1" readonly="1"/>
+                <footer>
+                    <button name="action_confirm"
+                            string="Send inn nå"
+                            type="object"
+                            class="btn-primary"
+                            data-hotkey="q"/>
+                    <button string="Avbryt"
+                            class="btn-secondary"
+                            special="cancel"
+                            data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

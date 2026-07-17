@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Skattemelding-kodetype-felt på account.account form view -->
+    <record id="view_account_form_skattemelding" model="ir.ui.view">
+        <field name="name">account.account.form.skattemelding</field>
+        <field name="model">account.account</field>
+        <field name="inherit_id" ref="account.view_account_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='account_type']" position="after">
+                <field name="l10n_no_skattemelding_kodetype_id"
+                       options="{'no_create': True}"/>
+                <field name="l10n_no_skattemelding_kodetype_verified"
+                       widget="boolean_toggle"
+                       invisible="not l10n_no_skattemelding_kodetype_id"
+                       help="Sett til Sann etter at du har sjekket at Skatteetaten-beskrivelsen matcher kontoens bruk"/>
+                <field name="l10n_no_skattemelding_kodetype_underkodeliste"
+                       invisible="not l10n_no_skattemelding_kodetype_id"/>
+                <field name="l10n_no_skattemelding_kodetype_description"
+                       invisible="not l10n_no_skattemelding_kodetype_id"
+                       widget="text"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Liste-view: vis kodetype + verifisert-status -->
+    <record id="view_account_list_skattemelding" model="ir.ui.view">
+        <field name="name">account.account.list.skattemelding</field>
+        <field name="model">account.account</field>
+        <field name="inherit_id" ref="account.view_account_list"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='account_type']" position="after">
+                <field name="l10n_no_skattemelding_kodetype_id"
+                       optional="hide"
+                       string="Skattemelding-kode"/>
+                <field name="l10n_no_skattemelding_kodetype_verified"
+                       optional="hide"
+                       widget="boolean_toggle"
+                       string="Verifisert"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Dedikert mapping-review-list: alltid synlige kolonner for
+         kodetype + beskrivelse + verifisert. Brukes av
+         action_l10n_no_skattemelding_setup_mapping på skattemelding-recorden. -->
+    <record id="view_account_list_mapping_review" model="ir.ui.view">
+        <field name="name">account.account.list.mapping_review</field>
+        <field name="model">account.account</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Verifiser kontomapping for skattemelding"
+                  editable="bottom"
+                  multi_edit="1">
+                <field name="code" readonly="1"/>
+                <field name="name" readonly="1"/>
+                <field name="account_type" readonly="1" optional="hide"/>
+                <field name="l10n_no_skattemelding_kodetype_id"
+                       options="{'no_create': True}"
+                       string="Skatteetaten-kode"/>
+                <field name="l10n_no_skattemelding_kodetype_description"
+                       string="Beskrivelse fra Skatteetaten"
+                       widget="text"
+                       optional="show"
+                       readonly="1"/>
+                <field name="l10n_no_skattemelding_kodetype_verified"
+                       widget="boolean_toggle"
+                       string="Verifisert"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Server-action: Foreslå mapping (auto-suggest) -->
+    <record id="action_account_skattemelding_auto_suggest" model="ir.actions.server">
+        <field name="name">1. Foreslå Skattemelding-koder (auto)</field>
+        <field name="model_id" ref="account.model_account_account"/>
+        <field name="binding_model_id" ref="account.model_account_account"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_l10n_no_skattemelding_auto_suggest()</field>
+    </record>
+
+    <!-- Server-action: Verifisér mapping (manuell godkjenning) -->
+    <record id="action_account_skattemelding_verify" model="ir.actions.server">
+        <field name="name">2. Marker som verifisert</field>
+        <field name="model_id" ref="account.model_account_account"/>
+        <field name="binding_model_id" ref="account.model_account_account"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_l10n_no_skattemelding_verify_mapping()</field>
+    </record>
+
+    <!-- Server-action: Fjern verifisering (re-vurder) -->
+    <record id="action_account_skattemelding_unverify" model="ir.actions.server">
+        <field name="name">3. Fjern verifisering (re-vurder)</field>
+        <field name="model_id" ref="account.model_account_account"/>
+        <field name="binding_model_id" ref="account.model_account_account"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_l10n_no_skattemelding_unverify_mapping()</field>
+    </record>
+</odoo>

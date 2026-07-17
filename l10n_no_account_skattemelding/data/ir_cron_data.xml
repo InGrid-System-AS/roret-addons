@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!--
+            Cron: poll Altinn for skattemelding-kvitteringer.
+
+            Skatteetaten kjører validering + beregning asynkront etter at
+            instansen er submitted (typisk 3-10 min). Denne cron'en finner
+            alle skattemelding-records i state='submitted' uten mottatt_at
+            og kaller fetch_receipt på hver. Kunden slipper å klikke
+            "Hent kvittering" manuelt.
+
+            Hyppighet: 5 min — balanserer:
+              - Skatteetaten trenger 3-10 min på prosessering, så raskere
+                polling gir liten gevinst men mer trafikk
+              - 5 min er en behagelig "føler det går rakset"-opplevelse
+
+            Robusthet: cron-metoden bruker savepoint per record + suppress
+            UserError så feil i én record ikke stopper resten.
+        -->
+        <record id="ir_cron_poll_skattemelding_receipts" model="ir.cron">
+            <field name="name">Skattemelding: poll for kvitteringer fra Altinn</field>
+            <field name="model_id" ref="model_l10n_no_skattemelding"/>
+            <field name="state">code</field>
+            <field name="code">model._cron_poll_pending_receipts()</field>
+            <field name="user_id" ref="base.user_root"/>
+            <field name="interval_number">5</field>
+            <field name="interval_type">minutes</field>
+            <field name="active" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

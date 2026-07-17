@@ -1,0 +1,29 @@
+/*
+ * P0 #3 fix: tving XML-tekstfeltene til å wrappe lange linjer.
+ *
+ * konvolutt_xml inneholder base64-encoded dokumenter på én lang linje
+ * uten whitespace. Default <div class="o_field_text"> har white-space:
+ * pre-wrap men word-break:normal — så lange tokens (base64) bryter ikke
+ * → div.scrollWidth = 33000px på en 909px-bred container, hele form-en
+ * får horisontal scroll og tabs/buttons hopper når brukeren klikker
+ * Konvolutt XML-tab.
+ *
+ * Widget="text" rendrer som <div class="o_field_widget o_field_text">
+ * i readonly-modus (ikke <textarea>). Scope via name= attributtet.
+ */
+.o_form_view div.o_field_text[name="skattemelding_xml_display"],
+.o_form_view div.o_field_text[name="naeringsspesifikasjon_xml_display"],
+.o_form_view div.o_field_text[name="konvolutt_xml_display"],
+.o_form_view div.o_field_text[name="last_response"] {
+    word-break: break-all;
+    overflow-wrap: anywhere;
+    font-family: monospace;
+    font-size: 0.85em;
+
+    /* span inni div har sin egen white-space — sørg for at den også
+     * arver wrap-oppførselen */
+    & > span {
+        word-break: break-all;
+        overflow-wrap: anywhere;
+    }
+}

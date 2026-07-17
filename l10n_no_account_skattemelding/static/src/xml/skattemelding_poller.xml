@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!--
+        Usynlig mount-hook for SkattemeldingPollerWidget. Polling-logikken
+        kjører i JS — template renderer ingenting synlig.
+    -->
+    <t t-name="l10n_no_account_skattemelding.SkattemeldingPollerWidget">
+        <span class="o_skattemelding_poller" style="display: none;"/>
+    </t>
+
+</templates>

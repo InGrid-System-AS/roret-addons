@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_company_form_skattemelding" model="ir.ui.view">
+        <field name="name">res.company.form.skattemelding</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Skattemelding"
+                      name="l10n_no_skattemelding"
+                      invisible="country_code != 'NO'">
+                    <div class="alert alert-info" role="alert">
+                        Konfigurasjon brukt ved generering av skattemelding
+                        + næringsspesifikasjon. Endringer her påvirker neste
+                        innsending — eksisterende sendte meldinger forblir uberørt.
+                    </div>
+                    <group>
+                        <group string="Selskapstype">
+                            <field name="l10n_no_skattemelding_regnskapspliktstype"/>
+                            <field name="l10n_no_skattemelding_virksomhetstype"/>
+                            <field name="l10n_no_skattemelding_regeltype_aarsregnskap"/>
+                        </group>
+                        <group string="Skatteetaten">
+                            <field name="l10n_no_skattemelding_partsnummer"
+                                   readonly="1"
+                                   help="Auto-fylles ved første Altinn-kontakt"/>
+                            <field name="l10n_no_skattemelding_aktivert"
+                                   readonly="1"/>
+                            <button name="action_l10n_no_skattemelding_activate"
+                                    string="Aktiver Skattemelding..."
+                                    type="object"
+                                    class="btn-primary"
+                                    invisible="l10n_no_skattemelding_aktivert"
+                                    help="Opprett Altinn 3 systembruker-request"/>
+                        </group>
+                    </group>
+                    <group string="Årsavslutningsbilag — konto-konfig">
+                        <p colspan="2" class="text-muted">
+                            La feltene være tomme for å la modulen finne
+                            standard NS 4102-konti automatisk (8800, 2050,
+                            2080). Sett eksplisitt kun hvis kontoplanen
+                            avviker fra NS 4102.
+                        </p>
+                        <field name="l10n_no_skattemelding_aarsresultat_account_id"
+                               options="{'no_create': True}"/>
+                        <field name="l10n_no_skattemelding_annen_ek_account_id"
+                               options="{'no_create': True}"/>
+                        <field name="l10n_no_skattemelding_udekket_tap_account_id"
+                               options="{'no_create': True}"/>
+                        <field name="l10n_no_skattemelding_closing_journal_id"
+                               options="{'no_create': True}"/>
+                    </group>
+                    <!--
+                        Selskaps-opplysninger til skattemelding (boersnotert
+                        + ytelser) er midlertidig skjult fra UI fordi Phase D
+                        ble revertet — feltene rapporteres ikke til
+                        Skatteetaten ennå. Vises igjen når v5-XSD fra
+                        Skatteetaten gjør korrekt implementasjon mulig.
+                        Modell-feltene er bevart slik at data ikke går tapt.
+                    -->
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_res_company_form_l10n_no_eristo" model="ir.ui.view">
+        <field name="name">res.company.form.l10n.no.eristo</field>
+        <field name="model">res.company</field>
+        <field name="inherit_id" ref="base.view_company_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page string="Skatteetaten-tilkobling"
+                      name="l10n_no_eristo">
+                    <div class="alert alert-info" role="alert">
+                        Eristo Token Service signerer Maskinporten-token på vegne av
+                        selskapet for alle Skatteetaten-integrasjoner (a-melding,
+                        skattekort, MVA, skattemelding). Privat nøkkel ligger sentralt
+                        — kunden holder bare en API-key.
+                    </div>
+                    <group>
+                        <group string="Tilkobling">
+                            <field name="l10n_no_eristo_environment"/>
+                            <field name="l10n_no_eristo_token_url"
+                                   placeholder="https://...supabase.co/functions/v1/maskinporten-token"/>
+                            <field name="l10n_no_eristo_api_key"
+                                   password="True"
+                                   placeholder="API-key utstedt fra Eristo ved onboarding"/>
+                        </group>
+                    </group>
+                    <!-- Knapper inline i tabben — <footer> inne i <page>
+                         render'er ikke pålitelig som synlige knapper i
+                         Odoo 19 (ble usynlig på Roret AS-test). -->
+                    <div class="mt16">
+                        <button name="%(action_l10n_no_eristo_customer_onboard_wizard)d"
+                                string="Onboard hos Eristo"
+                                type="action"
+                                class="btn-primary"
+                                invisible="l10n_no_eristo_api_key"
+                                groups="base.group_system"/>
+                        <button name="action_l10n_no_test_eristo_connection"
+                                string="Test Eristo-forbindelse"
+                                type="object"
+                                class="btn-primary"
+                                invisible="not l10n_no_eristo_api_key"
+                                groups="base.group_system"/>
+                    </div>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>

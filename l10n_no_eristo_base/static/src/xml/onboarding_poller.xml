@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <!--
+        Usynlig mount-hook for OnboardingPollerWidget. Komponenten gjør
+        all jobben i JS — template renderer ingenting synlig. Gir oss
+        en plassholder i form-viewen så onMounted-hook kan kjøre.
+    -->
+    <t t-name="l10n_no_eristo_base.OnboardingPollerWidget">
+        <span class="o_eristo_onboarding_poller" style="display: none;"/>
+    </t>
+
+</templates>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_l10n_no_eristo_onboarding_wizard_form" model="ir.ui.view">
+        <field name="name">l10n.no.eristo.onboarding.wizard.form</field>
+        <field name="model">l10n.no.eristo.onboarding.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Aktiver Eristo-tjeneste">
+                <!-- Usynlig auto-poll-widget: når state=pending,
+                     klikker den auto-action_check_status hvert 4. sek
+                     i opptil 5 min slik at kunde slipper å klikke
+                     "Sjekk status" manuelt etter Altinn-godkjenning. -->
+                <widget name="onboarding_poller"
+                        invisible="state != 'pending'"/>
+                <field name="state" widget="statusbar"
+                       statusbar_visible="start,pending,accepted,rejected,timeout,error"/>
+
+                <!-- Steg 1: Start -->
+                <group invisible="state != 'start'">
+                    <div class="oe_inline" colspan="2">
+                        <h2>Aktiver <field name="service_name" readonly="1" nolabel="1" class="oe_inline"/></h2>
+                        <p>
+                            Vi vil opprette en Altinn 3 systembruker for selskapet
+                            <field name="company_id" readonly="1" nolabel="1" class="oe_inline"/>.
+                            Etter du har klikket "Start aktivering" får du en lenke
+                            til Altinn-portalen der daglig leder må logge inn og
+                            bekrefte tilgangen.
+                        </p>
+                        <p>
+                            Forespurte rettigheter:
+                            <field name="scopes_text" readonly="1" nolabel="1"/>
+                        </p>
+                    </div>
+                </group>
+
+                <!-- Steg 2: Pending — vis confirm_url -->
+                <group invisible="state != 'pending'">
+                    <div colspan="2">
+                        <h2>Godkjenn i Altinn-portalen</h2>
+                        <p>
+                            Klikk lenken under for å åpne Altinn-portalen.
+                            Logg inn med ID-porten som daglig leder for selskapet,
+                            og bekreft systembruker-tilgangen.
+                        </p>
+                        <p>
+                            <field name="confirm_url" readonly="1" widget="url"/>
+                        </p>
+                        <p>
+                            Etter du har godkjent, klikk "Sjekk status" under.
+                        </p>
+                    </div>
+                </group>
+
+                <!-- Steg 3: Accepted — suksess -->
+                <group invisible="state != 'accepted'">
+                    <div colspan="2">
+                        <h2>🎉 Tjenesten er aktivert!</h2>
+                        <p>
+                            <field name="service_name" readonly="1" nolabel="1" class="oe_inline"/>
+                            er nå klar til bruk for
+                            <field name="company_id" readonly="1" nolabel="1" class="oe_inline"/>.
+                        </p>
+                    </div>
+                </group>
+
+                <!-- Feil-states -->
+                <group invisible="state not in ('rejected', 'timeout', 'error')">
+                    <field name="error_message" readonly="1" nolabel="1"
+                           invisible="not error_message"/>
+                    <div colspan="2" invisible="state != 'rejected'">
+                        <p>Forespørselen ble avvist i Altinn. Du kan starte en ny aktivering når du er klar.</p>
+                    </div>
+                    <div colspan="2" invisible="state != 'timeout'">
+                        <p>Forespørselen utløp i Altinn (typisk etter 30 dager). Start en ny aktivering.</p>
+                    </div>
+                </group>
+
+                <!-- Interne identifikatorer (debug) -->
+                <group invisible="not external_ref">
+                    <field name="external_ref" readonly="1"/>
+                    <field name="altinn_request_id" readonly="1"/>
+                </group>
+
+                <footer>
+                    <button name="action_start_onboarding"
+                            string="Start aktivering"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'start'"/>
+                    <button name="action_open_altinn"
+                            string="Åpne Altinn-portalen"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state != 'pending'"/>
+                    <button name="action_check_status"
+                            string="Sjekk status"
+                            type="object"
+                            invisible="state != 'pending'"/>
+                    <button string="Lukk"
+                            class="btn-secondary"
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

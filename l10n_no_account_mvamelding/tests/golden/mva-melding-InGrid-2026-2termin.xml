@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<mvaMeldingDto xmlns="no:skatteetaten:fastsetting:avgift:mva:skattemeldingformerverdiavgift:v1.0">
+  <innsending>
+    <regnskapssystemsreferanse>694a7d6f-1ef6-4d28-8d3f-502acbf7dd87</regnskapssystemsreferanse>
+    <regnskapssystem>
+      <systemnavn>Eristo MVA-melding for Odoo 19</systemnavn>
+      <systemversjon>19.0.1.0.0</systemversjon>
+    </regnskapssystem>
+  </innsending>
+  <skattegrunnlagOgBeregnetSkatt>
+    <skattleggingsperiode>
+      <periode>
+        <skattleggingsperiodeToMaaneder>mars-april</skattleggingsperiodeToMaaneder>
+      </periode>
+      <aar>2026</aar>
+    </skattleggingsperiode>
+    <fastsattMerverdiavgift>160369</fastsattMerverdiavgift>
+    <mvaSpesifikasjonslinje>
+      <mvaKode>1</mvaKode>
+      <merverdiavgift>-289479</merverdiavgift>
+    </mvaSpesifikasjonslinje>
+    <mvaSpesifikasjonslinje>
+      <mvaKode>3</mvaKode>
+      <grunnlag>1799390</grunnlag>
+      <sats>25</sats>
+      <merverdiavgift>449848</merverdiavgift>
+    </mvaSpesifikasjonslinje>
+  </skattegrunnlagOgBeregnetSkatt>
+  <betalingsinformasjon/>
+  <skattepliktig>
+    <organisasjonsnummer>936788106</organisasjonsnummer>
+  </skattepliktig>
+  <meldingskategori>alminnelig</meldingskategori>
+</mvaMeldingDto>
