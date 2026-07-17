@@ -9,9 +9,11 @@ from odoo import _, fields, models
 from odoo.exceptions import UserError
 
 
-_DEFAULT_TOKEN_URL = (
-    'https://vwyfckvpfnfpjbzgoqpu.supabase.co/functions/v1/maskinporten-token'
-)
+# Roret Compliance Gateway — felles kontrakt for Roret Cloud og modulkunder
+# (arkitekturbeslutning 7 / end-state). Eksisterende selskaper beholder sin
+# lagrede URL (defaulten gjelder kun nye); dagens Odoo.sh-produksjon som
+# fortsatt peker på Supabase-tjenesten er dermed uberørt.
+_DEFAULT_TOKEN_URL = 'https://api.roret.no/maskinporten-token'
 
 
 class ResCompany(models.Model):

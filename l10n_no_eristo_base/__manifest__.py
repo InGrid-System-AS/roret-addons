@@ -1,6 +1,6 @@
 {
     'name': 'Norway - Eristo Token Service Base',
-    'version': '19.0.2.6.0',
+    'version': '19.0.2.6.1',
     'category': 'Localization',
     'summary': 'Felles auth-lag mot Skatteetaten via Eristo Token Service',
     'description': """

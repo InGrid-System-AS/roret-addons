@@ -6,9 +6,16 @@ Alle kundevendte endringer i Produkt 2-modulsettet. Følges av release-tags
 Oppgraderingsnotater som krever handling (f.eks. parede `-u`/`-i`-kommandoer)
 står under den aktuelle releasen — les dem FØR du bumper submodule-taggen.
 
-## [Urelaset]
+## v1.0.1 — 2026-07-17
 
-### Første release (kommer)
+- Default token-URL og placeholder peker nå på Roret Compliance Gateway
+  (`https://api.roret.no/maskinporten-token`) i stedet for den interne
+  legacy-tjenesten. Eksisterende selskaper beholder sin lagrede URL —
+  kun default for nye selskaper er endret.
+
+## v1.0.0 — 2026-07-17
+
+### Første release
 - MVA-melding med elektronisk innsending via ID-porten (BankID) og
   Roret Compliance Gateway; kvittering med verdikt (godkjent/avvist).
 - MVA-oppgjørsbilag (2740, hele kroner) — core-only.

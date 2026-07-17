@@ -18,10 +18,10 @@
                         <group string="Tilkobling">
                             <field name="l10n_no_eristo_environment"/>
                             <field name="l10n_no_eristo_token_url"
-                                   placeholder="https://...supabase.co/functions/v1/maskinporten-token"/>
+                                   placeholder="https://api.roret.no/maskinporten-token"/>
                             <field name="l10n_no_eristo_api_key"
                                    password="True"
-                                   placeholder="API-key utstedt fra Eristo ved onboarding"/>
+                                   placeholder="API-key utstedt fra Roret ved onboarding"/>
                         </group>
                     </group>
                     <!-- Knapper inline i tabben — <footer> inne i <page>
