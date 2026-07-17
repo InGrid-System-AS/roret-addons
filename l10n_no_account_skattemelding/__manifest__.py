@@ -1,6 +1,6 @@
 {
     'name': 'Norway - Skattemelding (Tax Return)',
-    'version': '19.0.8.5.1',
+    'version': '19.0.8.5.2',
     'category': 'Accounting/Localizations',
     'summary': 'Skattemelding-innsending for AS via Skatteetaten Altinn 3 + valideringsjobb-API',
     'description': """

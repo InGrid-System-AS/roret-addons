@@ -6,6 +6,13 @@ Alle kundevendte endringer i Produkt 2-modulsettet. Følges av release-tags
 Oppgraderingsnotater som krever handling (f.eks. parede `-u`/`-i`-kommandoer)
 står under den aktuelle releasen — les dem FØR du bumper submodule-taggen.
 
+## v1.0.2 — 2026-07-17
+
+- Bytt deprecated `read_group` → `_read_group` i skattemelding
+  (closing + xml-builder). Fjerner DeprecationWarning som gjorde
+  Odoo.sh-bygg oransje («Test: Warning»). Ingen funksjonell endring —
+  samme saldoer/tall (95 tester grønne).
+
 ## v1.0.1 — 2026-07-17
 
 - Default token-URL og placeholder peker nå på Roret Compliance Gateway

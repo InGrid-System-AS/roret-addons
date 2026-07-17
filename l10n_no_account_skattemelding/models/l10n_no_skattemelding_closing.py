@@ -436,22 +436,22 @@ class L10nNoSkattemeldingClosing(models.Model):
 
         # Balanse-bidrag: kontoer m. ikke-null kumulativ saldo pr 31.12,
         # inklusiv closing-bilag. Matcher _check_mapping_coverage(
-        # cumulative=True). Bruk read_group for å regne saldo per konto
-        # uten å fetche enkelt-linjer.
-        bal_groups = AML.sudo().read_group(
+        # cumulative=True). Bruk _read_group for å regne saldo per konto
+        # uten å fetche enkelt-linjer (read_group er deprecated fra 19.0).
+        bal_groups = AML.sudo()._read_group(
             [
                 ('company_id', '=', company.id),
                 ('date', '<=', date_to),
                 ('parent_state', '=', 'posted'),
                 ('account_id.code', '!=', False),
             ],
-            ['account_id', 'balance:sum'],
-            ['account_id'],
+            groupby=['account_id'],
+            aggregates=['balance:sum'],
         )
         balance_account_ids = {
-            g['account_id'][0]
-            for g in bal_groups
-            if abs(g['balance']) > 0.005  # toleranse for fp-støy
+            account.id
+            for account, balance in bal_groups
+            if abs(balance) > 0.005  # toleranse for fp-støy
         }
 
         relevant_ids = result_account_ids | balance_account_ids

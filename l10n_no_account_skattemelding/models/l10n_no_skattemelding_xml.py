@@ -760,23 +760,24 @@ class L10nNoSkattemeldingXmlService(models.AbstractModel):
             # avslutningen synlig i balansen.
             domain.append(('move_id.l10n_no_skattemelding_closing', '=', False))
 
-        groups = self.env['account.move.line'].sudo().read_group(
+        # _read_group (read_group er deprecated fra 19.0): returnerer
+        # tupler (account, debit_sum, credit_sum).
+        groups = self.env['account.move.line'].sudo()._read_group(
             domain,
-            ['account_id', 'debit:sum', 'credit:sum'],
-            ['account_id'],
+            groupby=['account_id'],
+            aggregates=['debit:sum', 'credit:sum'],
         )
 
         by_kodetype = defaultdict(lambda: {'debit': 0.0, 'credit': 0.0})
-        for g in groups:
-            account = self.env['account.account'].browse(g['account_id'][0])
+        for account, debit, credit in groups:
             kt = account.l10n_no_skattemelding_kodetype_id
             # Filtrér: kodetype må gjelde dette inntektsåret. Hvis konto
             # er mappet til 2024-kodetype og vi rapporterer 2025, skip
             # (kunden må re-mappe for året først).
             if not kt or kt.inntektsaar != year:
                 continue
-            by_kodetype[kt]['debit'] += g['debit']
-            by_kodetype[kt]['credit'] += g['credit']
+            by_kodetype[kt]['debit'] += debit
+            by_kodetype[kt]['credit'] += credit
         return by_kodetype
 
     @api.model
