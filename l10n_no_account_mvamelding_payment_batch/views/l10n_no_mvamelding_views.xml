@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Legger betalingsbunt-steget på MVA-melding-formen (kjernen er
+         core-only og kjenner ikke Enterprise-feltene). Speiler
+         l10n_no_account_mvamelding_payment, som gjør det samme mot OCA. -->
+    <record id="view_l10n_no_mvamelding_form_payment_batch" model="ir.ui.view">
+        <field name="name">l10n.no.mvamelding.form.payment.batch</field>
+        <field name="model">l10n.no.mvamelding</field>
+        <field name="inherit_id"
+               ref="l10n_no_account_mvamelding.view_l10n_no_mvamelding_form"/>
+        <field name="arch" type="xml">
+            <button name="action_bokfor_oppgjor" position="after">
+                <button name="action_opprett_betaling_batch" type="object"
+                        string="Opprett betaling" class="oe_highlight"
+                        invisible="state != 'mottatt' or betaling_batch_id or not oppgjor_move_id"/>
+            </button>
+            <field name="oppgjor_move_id" position="after">
+                <field name="betaling_batch_id"/>
+                <field name="betaling_payment_id"/>
+            </field>
+        </field>
+    </record>
+</odoo>

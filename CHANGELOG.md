@@ -6,6 +6,15 @@ Alle kundevendte endringer i Produkt 2-modulsettet. Følges av release-tags
 Oppgraderingsnotater som krever handling (f.eks. parede `-u`/`-i`-kommandoer)
 står under den aktuelle releasen — les dem FØR du bumper submodule-taggen.
 
+## v1.1.0 — 2026-07-18
+
+- Ny bro-modul `l10n_no_account_mvamelding_payment_batch`: MVA-betaling
+  (KID → pain.001) via Enterprise betalingsbunt (account_batch_payment).
+  Enterprise-speilet av OCA-broen — auto_install hos Odoo.sh-kunder.
+  Betalingen føres mot oppgjørskontoen (2740) med KID som melding;
+  bunten eksporteres og godkjennes i nettbanken som vanlig. Ingen
+  endring i eksisterende moduler.
+
 ## v1.0.2 — 2026-07-17
 
 - Bytt deprecated `read_group` → `_read_group` i skattemelding
