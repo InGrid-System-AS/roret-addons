@@ -1,8 +1,9 @@
 """HTTP-klient mot Eristo Token Service.
 
-Eristo Token Service er en sentral Supabase Edge Function som signerer
-Maskinporten JWT på vegne av kunde-Odoo. Hver kunde har en API-key som
-identifiserer dem mot tjenesten — privat nøkkel er aldri i kundens Odoo.
+Eristo Token Service (Roret Compliance Gateway, api.roret.no) er en
+sentral tjeneste som signerer Maskinporten-JWT på vegne av kunde-Odoo.
+Hver kunde har en API-key som identifiserer dem mot tjenesten — privat
+nøkkel er aldri i kundens Odoo.
 
 Denne abstract-modellen er auth-laget som alle Skatteetaten-integrasjoner
 bruker (a-melding, skattekort, MVA, skattemelding). Domene-spesifikke
@@ -202,10 +203,13 @@ class L10nNoEristoService(models.AbstractModel):
     def _eristo_onboard_url(self, company):
         """Avled onboard-systembruker-endpoint-URL fra token-URL.
 
-        Eristo Token Service og Onboard Service er to Edge Functions
-        på samme Supabase-prosjekt (begge under /functions/v1/). Vi
-        avleder onboard-URL ved enkel string-replacement — trygt siden
-        deployments er kontrollert av Eristo.
+        Token- og onboard-endepunktene ligger på SAMME tjeneste, så
+        vi avleder onboard-URL ved enkel string-replacement — trygt
+        siden deployments er kontrollert av Eristo.
+
+        MERK: alle avledede endepunkter (onboard, bank, ID-porten) følger
+        automatisk med når token-URL-en endres. Ved repoint av en kunde
+        må derfor HVER av dem verifiseres, ikke bare token-kallet.
         """
         if not company.l10n_no_eristo_token_url:
             raise UserError(_(
@@ -238,8 +242,8 @@ class L10nNoEristoService(models.AbstractModel):
         """Hent admin-secret for /onboard-customer fra ir.config_parameter.
 
         Lagres som System Parameter ``l10n_no_eristo.onboard_admin_secret``
-        — synlig kun for base.group_system, og må matche Supabase-secret
-        ``ERISTO_ONBOARD_ADMIN_SECRET`` som er satt på Edge-funksjonen.
+        — synlig kun for base.group_system, og må matche tjenestens
+        admin-secret (``GATEWAY_ADMIN_SECRET`` på Roret-gatewayen).
 
         Kun Eristo som platform-operatør har denne. Eksterne kunder som
         kjører egen Odoo-instans får sin API-key utlevert manuelt av
@@ -252,8 +256,8 @@ class L10nNoEristoService(models.AbstractModel):
             raise UserError(_(
                 "Admin-secret for customer-onboarding er ikke konfigurert. "
                 "Settings → Technical → System Parameters: legg inn "
-                "'l10n_no_eristo.onboard_admin_secret' (må matche Supabase-"
-                "secret ERISTO_ONBOARD_ADMIN_SECRET)."
+                "'l10n_no_eristo.onboard_admin_secret' (må matche "
+                "admin-secreten som er satt på tjenesten)."
             ))
         return secret
 
@@ -273,9 +277,9 @@ class L10nNoEristoService(models.AbstractModel):
         (de bruker get_access_token + request_onboarding istedet).
 
         Idempotens: hvis orgnr+environment finnes fra før returnerer
-        Edge-funksjonen 409 → vi reiser UserError m. eksisterende customer-id.
-        Roter ved å sette gammel rad status='disabled' manuelt i Supabase
-        før retry.
+        tjenesten 409 → vi reiser UserError m. eksisterende customer-id.
+        Roter ved å sette gammel kunderad status='disabled' i tjenestens
+        kunderegister før retry.
         """
         if not orgnr:
             raise UserError(_("Onboarding krever orgnr."))
@@ -313,11 +317,11 @@ class L10nNoEristoService(models.AbstractModel):
                 raise UserError(_(
                     "Admin-secret avvist av Eristo Token Service. "
                     "Sjekk at 'l10n_no_eristo.onboard_admin_secret' i "
-                    "System Parameters matcher Supabase-secret "
-                    "ERISTO_ONBOARD_ADMIN_SECRET."
+                    "System Parameters matcher admin-secreten som er satt "
+                    "på tjenesten."
                 ))
             if e.code == 409:
-                # Edge-funksjonen returnerer {error: customer_exists, customer_id, detail}
+                # Tjenesten returnerer {error: customer_exists, customer_id, detail}
                 try:
                     payload = json.loads(err_body)
                 except ValueError:
@@ -325,8 +329,8 @@ class L10nNoEristoService(models.AbstractModel):
                 raise UserError(_(
                     "Kunde med orgnr %(o)s finnes allerede i %(e)s-miljø "
                     "(customer_id=%(cid)s). For å rotere nøkkelen: sett "
-                    "gammel rad status='disabled' i Supabase og kjør "
-                    "onboarding på nytt.",
+                    "gammel kunderad status='disabled' i tjenestens "
+                    "kunderegister og kjør onboarding på nytt.",
                     o=orgnr, e=environment,
                     cid=payload.get('customer_id', '?'),
                 ))

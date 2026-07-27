@@ -6,7 +6,7 @@ holder en LOKAL ref-til-callback-record som forteller hvilken Odoo-
 record (skattemelding, MVA-melding osv.) som skal handles på etter at
 brukeren er tilbake fra ID-porten-popup.
 
-Den faktiske Altinn-tokenet og PID lagres I Supabase Token Service —
+Det faktiske Altinn-tokenet og PID lagres i Eristo Token Service —
 ikke her, av sikkerhetshensyn.
 """
 from datetime import datetime, timedelta

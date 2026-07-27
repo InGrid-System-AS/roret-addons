@@ -6,6 +6,53 @@ Alle kundevendte endringer i Produkt 2-modulsettet. Følges av release-tags
 Oppgraderingsnotater som krever handling (f.eks. parede `-u`/`-i`-kommandoer)
 står under den aktuelle releasen — les dem FØR du bumper submodule-taggen.
 
+## Slik leser du en oppføring
+
+Hver release følger samme struktur, slik at du kan skumme rett til det som
+angår deg:
+
+| Seksjon | Betyr |
+|---|---|
+| **Krever handling** | Du må gjøre noe utover å bumpe taggen — les før oppgradering |
+| **Nytt** | Ny funksjonalitet. Trygt å ta, ingen handling |
+| **Fikset** | Feilretting. Trygt å ta |
+| **Gateway** | Minstekrav til Roret Compliance Gateway (api.roret.no) |
+
+Seksjoner uten innhold utelates. Står det ingen **Krever handling**, er
+oppgraderingen en ren tagg-bump.
+
+Versjonsnumrene betyr:
+
+- **MAJOR** (`v2.0.0`) — kan kreve handling; les alltid
+- **MINOR** (`v1.2.0`) — ny funksjonalitet, bakoverkompatibel
+- **PATCH** (`v1.1.1`) — feilretting, trygt å ta blindt
+
+`scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
+oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
+
+## v1.2.0 — 2026-07-27
+
+**Fikset**
+
+- Ordlyd i kommentarer, docstrings og feilmeldinger viste til Supabase,
+  som ikke lenger er tjenesten bak `l10n_no_eristo_token_url`. To
+  feilmeldinger var direkte villedende: de ba deg sjekke en Supabase-
+  secret og endre en rad i Supabase — steder som ikke finnes.
+  Ordlyden er nå leverandøruavhengig («tjenesten»), slik at den også
+  stemmer for kunder som kjører mot egen instans.
+- Dokumentert i `_eristo_onboard_url()` og `_idporten_endpoint()` at ALLE
+  avledede endepunkter (onboard, bank, ID-porten) følger automatisk med
+  når `l10n_no_eristo_token_url` endres. Endrer du URL-en, må hvert
+  endepunkt verifiseres for seg — en tjeneste uten ID-porten-klient
+  konfigurert svarer `501`, og da stopper MVA og skattemelding.
+
+Ingen funksjonsendring: verifisert med AST-sammenligning at kontrollflyt,
+kall og argumenter er identiske. Ren tagg-bump.
+
+**Gateway**
+
+- Ingen nye krav. Fungerer mot samme gateway-versjon som v1.1.0.
+
 ## v1.1.0 — 2026-07-18
 
 - Ny bro-modul `l10n_no_account_mvamelding_payment_batch`: MVA-betaling
@@ -14,6 +61,16 @@ står under den aktuelle releasen — les dem FØR du bumper submodule-taggen.
   Betalingen føres mot oppgjørskontoen (2740) med KID som melding;
   bunten eksporteres og godkjennes i nettbanken som vanlig. Ingen
   endring i eksisterende moduler.
+
+**Oppgraderingsnotat (eksisterende database):** auto_install fyrer kun
+når avhengighetene INSTALLERES — er kjernen og account_batch_payment
+allerede installert (enhver eksisterende Odoo.sh-database), installeres
+broen IKKE av en ren `-u`/rebuild (verifisert på staging 2026-07-18).
+Kjør eksplisitt:
+
+    odoo-bin -d <db> -i l10n_no_account_mvamelding_payment_batch --stop-after-init
+
+Nyinstallasjoner er uberørt — der fyrer auto_install som normalt.
 
 ## v1.0.2 — 2026-07-17
 

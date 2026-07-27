@@ -16,9 +16,9 @@ Tilbyr:
   - "Skatteetaten-tilkobling"-tab på res.company som domene-modulene
     bygger oppå sine egne tabber (A-melding, MVA, etc.)
 
-Token-service-implementasjonen ligger på platform/token-service/ i
-samme repo og deployer til Supabase Edge Functions. Modulen her er
-HTTP-klient mot den.
+Tjenesten er Roret Compliance Gateway (api.roret.no) — en selvhostet
+FastAPI-tjeneste som holder virksomhetssertifikatet. Modulen her er
+HTTP-klient mot den, og bryr seg kun om URL + API-key.
 """,
     'author': 'Eristo AS',
     'website': 'https://eristo.no',
