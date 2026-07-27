@@ -5,10 +5,10 @@ som kunde av token-tjenesten. Wizarden:
 
   1. Henter orgnr fra company.vat (via _orgnr-helperen, m. test-override)
   2. Lar admin velge environment (test/prod)
-  3. Kaller /onboard-customer Edge Function m. admin-secret som Bearer
+  3. Kaller /onboard-customer på tjenesten m. admin-secret som Bearer
   4. Skriver returnert API-key inn i company.l10n_no_eristo_api_key
-  5. Viser API-key i klartekst én gang som backup (Supabase-siden
-     lagrer kun SHA-256-hash)
+  5. Viser API-key i klartekst én gang som backup (tjenesten lagrer
+     kun SHA-256-hash)
 
 Etter wizarden er ferdig kan admin gå videre til onboarding-wizard'en
 for å aktivere scopes (skattemelding, a-melding etc.) i Altinn.

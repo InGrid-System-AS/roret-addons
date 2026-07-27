@@ -39,8 +39,12 @@ def _idporten_endpoint(company, function_name):
     """Avled ID-porten Edge Function-URL fra Token Service-URL.
 
     Eksisterende l10n_no_eristo_token_url peker på maskinporten-token-
-    funksjonen. ID-porten-funksjonene ligger på samme Supabase-prosjekt,
-    så vi gjør string-replacement.
+    endepunktet. ID-porten-endepunktene ligger på SAMME tjeneste, så vi
+    gjør string-replacement.
+
+    Konsekvens: repointes token-URL-en, flytter ID-porten-flyten (MVA og
+    skattemelding) med automatisk. Verifiser den eksplisitt ved bytte —
+    en tjeneste uten ID-porten-klient konfigurert svarer 501.
     """
     if not company.l10n_no_eristo_token_url:
         raise UserError(_(
