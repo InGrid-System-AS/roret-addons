@@ -92,23 +92,45 @@ class ResCompany(models.Model):
                 ', '.join(active_scopes) if active_scopes
                 else "(ingen scopes aktivert ennå)"
             )
+            # Hvilken tjeneste svarte? Vises alltid — «hvilken gateway
+            # snakker jeg med» er det første spørsmålet ved feilsøking.
+            versjon = result.get('gateway_version') or "(ukjent)"
+            melding = _(
+                "API-key gyldig.\n\n"
+                "Kunde: %(name)s\n"
+                "Orgnr: %(orgnr)s\n"
+                "Miljø: %(env)s\n"
+                "Tjeneste-versjon: %(versjon)s\n"
+                "Aktive scopes: %(scopes)s",
+                name=customer.get('name') or '?',
+                orgnr=customer.get('orgnr') or '?',
+                env=customer.get('environment') or '?',
+                versjon=versjon,
+                scopes=scopes_line,
+            )
+            # For gammel gateway: gul boks, ikke grønn. Uten dette ville
+            # advarselen kun stått i serverloggen — usynlig for en
+            # Produkt 2-kunde med egen Odoo, altså akkurat den kunden
+            # som trenger den mest.
+            advarsel = result.get('gateway_version_advarsel')
+            if advarsel:
+                return {
+                    'type': 'ir.actions.client',
+                    'tag': 'display_notification',
+                    'params': {
+                        'type': 'warning',
+                        'title': _("Tilkobling OK — men tjenesten er utdatert"),
+                        'message': "%s\n\n%s" % (advarsel, melding),
+                        'sticky': True,
+                    },
+                }
             return {
                 'type': 'ir.actions.client',
                 'tag': 'display_notification',
                 'params': {
                     'type': 'success',
                     'title': _("Eristo Token Service OK"),
-                    'message': _(
-                        "API-key gyldig.\n\n"
-                        "Kunde: %(name)s\n"
-                        "Orgnr: %(orgnr)s\n"
-                        "Miljø: %(env)s\n"
-                        "Aktive scopes: %(scopes)s",
-                        name=customer.get('name') or '?',
-                        orgnr=customer.get('orgnr') or '?',
-                        env=customer.get('environment') or '?',
-                        scopes=scopes_line,
-                    ),
+                    'message': melding,
                     'sticky': True,
                 },
             }

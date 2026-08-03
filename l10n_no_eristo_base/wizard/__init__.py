@@ -1,2 +1,1 @@
 from . import l10n_no_eristo_onboarding_wizard
-from . import l10n_no_eristo_customer_onboard_wizard

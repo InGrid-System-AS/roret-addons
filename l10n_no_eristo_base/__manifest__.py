@@ -1,6 +1,6 @@
 {
     'name': 'Norway - Eristo Token Service Base',
-    'version': '19.0.2.6.1',
+    'version': '19.0.2.9.0',
     'category': 'Localization',
     'summary': 'Felles auth-lag mot Skatteetaten via Eristo Token Service',
     'description': """
@@ -28,10 +28,7 @@ HTTP-klient mot den, og bryr seg kun om URL + API-key.
     ],
     'data': [
         'security/ir.model.access.csv',
-        # Wizard-actions må lastes før res_company_views.xml siden
-        # company-formet refererer customer-onboard-action via %(...)d.
         'wizard/l10n_no_eristo_onboarding_wizard_views.xml',
-        'wizard/l10n_no_eristo_customer_onboard_wizard_views.xml',
         'views/res_company_views.xml',
     ],
     'assets': {

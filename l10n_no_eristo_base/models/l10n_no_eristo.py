@@ -22,6 +22,37 @@ from odoo.exceptions import AccessError, UserError
 
 _logger = logging.getLogger(__name__)
 
+# Minste gateway-versjon disse modulene krever. Gatewayen oppgir sin
+# versjon i /eristo-ping (felt: gateway_version).
+#
+# BUMP NÅR modulene begynner å bruke et endepunkt eller en semantikk som
+# eldre gatewayer ikke har. Da får kunden en tydelig advarsel ved «Test
+# forbindelse» i stedet for en uforklarlig feil midt i en innsending —
+# f.eks. 501 fra /idporten-* når gatewayen mangler ID-porten-klient.
+GATEWAY_MIN_VERSION = '1.1.0'
+
+
+def _versjon_tuple(versjon):
+    """'1.2.0' -> (1, 2, 0). Ukjent/uparsebar form gir None."""
+    try:
+        deler = tuple(int(d) for d in str(versjon).strip().split('.'))
+    except (AttributeError, ValueError):
+        return None
+    return deler if len(deler) == 3 else None
+
+
+def gateway_for_gammel(rapportert, minimum=GATEWAY_MIN_VERSION):
+    """True hvis gatewayen er eldre enn modulene krever.
+
+    Ukjent versjon regnes som OK: en gateway fra før feltet fantes skal
+    ikke gi falsk alarm — da er det opp til driftsrutinene. Vi advarer
+    kun når vi POSITIVT vet at den er for gammel.
+    """
+    a, b = _versjon_tuple(rapportert), _versjon_tuple(minimum)
+    if a is None or b is None:
+        return False
+    return a < b
+
 # Strict 9-digit Norwegian organization number, with optional 'NO' prefix
 # and 'MVA' suffix (typical VAT-formatting).
 _ORGNR_RE = re.compile(r'^(NO)?(\d{9})(MVA)?$')
@@ -159,6 +190,11 @@ class L10nNoEristoService(models.AbstractModel):
         Returnerer dict m.:
           - status: 'ok'
           - customer: {name, orgnr, environment, active_scopes (liste)}
+          - gateway_version: tjenestens semver, ELLER fraværende hvis
+            tjenesten er eldre enn feltet (da vet vi ingenting)
+          - gateway_version_advarsel: kun til stede når tjenesten er
+            ELDRE enn GATEWAY_MIN_VERSION. Ferdig formulert, brukervendt
+            tekst — konsumenter bør vise den, ikke bare logge den.
 
         Reiser UserError ved feil (401 ugyldig key, timeout, etc.).
         """
@@ -180,7 +216,7 @@ class L10nNoEristoService(models.AbstractModel):
         )
         try:
             with urllib.request.urlopen(req, timeout=15) as resp:
-                return json.loads(resp.read())
+                svar = json.loads(resp.read())
         except urllib.error.HTTPError as e:
             err_body = e.read().decode()[:500]
             _logger.error("Eristo ping error %s: %s", e.code, err_body)
@@ -198,6 +234,24 @@ class L10nNoEristoService(models.AbstractModel):
                 "Eristo Token Service er ikke tilgjengelig: %(err)s",
                 err=str(e)[:300],
             ))
+
+        # Kompatibilitetskontrakt: advar hvis tjenesten er eldre enn
+        # modulene krever. Vi BLOKKERER ikke — en for gammel gateway kan
+        # fortsatt betjene det meste, og en hard feil her ville tatt ned
+        # fungerende flyt. Advarselen gjør at avviket oppdages ved «Test
+        # forbindelse», ikke midt i en innsending mot en frist.
+        rapportert = svar.get('gateway_version')
+        if gateway_for_gammel(rapportert):
+            svar['gateway_version_advarsel'] = _(
+                "Tjenesten kjører versjon %(har)s, men modulene forventer "
+                "minst %(krav)s. Noen funksjoner kan mangle — kontakt "
+                "Eristo support for oppgradering.",
+                har=rapportert, krav=GATEWAY_MIN_VERSION,
+            )
+            _logger.warning(
+                "Eristo-gateway %s er eldre enn modulkravet %s (selskap %s)",
+                rapportert, GATEWAY_MIN_VERSION, company.display_name)
+        return svar
 
     @api.model
     def _eristo_onboard_url(self, company):
@@ -219,135 +273,6 @@ class L10nNoEristoService(models.AbstractModel):
         return company.l10n_no_eristo_token_url.replace(
             'maskinporten-token', 'onboard-systembruker',
         )
-
-    @api.model
-    def _eristo_onboard_customer_url(self, company):
-        """Avled onboard-customer-endpoint-URL fra token-URL.
-
-        Brukes av customer-onboard-wizarden for å opprette en ny rad
-        i token-tjenestens customers-tabell og hente ut en API-key.
-        Krever admin-secret (ikke kunde-API-key) som Bearer.
-        """
-        if not company.l10n_no_eristo_token_url:
-            raise UserError(_(
-                "Eristo Token Service-URL er ikke konfigurert. "
-                "Settings → Companies → Skatteetaten-tilkobling."
-            ))
-        return company.l10n_no_eristo_token_url.replace(
-            'maskinporten-token', 'onboard-customer',
-        )
-
-    @api.model
-    def _eristo_admin_secret(self):
-        """Hent admin-secret for /onboard-customer fra ir.config_parameter.
-
-        Lagres som System Parameter ``l10n_no_eristo.onboard_admin_secret``
-        — synlig kun for base.group_system, og må matche tjenestens
-        admin-secret (``GATEWAY_ADMIN_SECRET`` på Roret-gatewayen).
-
-        Kun Eristo som platform-operatør har denne. Eksterne kunder som
-        kjører egen Odoo-instans får sin API-key utlevert manuelt av
-        Eristo (eller via fremtidig selvbetjenings-web).
-        """
-        secret = self.env['ir.config_parameter'].sudo().get_param(
-            'l10n_no_eristo.onboard_admin_secret'
-        )
-        if not secret:
-            raise UserError(_(
-                "Admin-secret for customer-onboarding er ikke konfigurert. "
-                "Settings → Technical → System Parameters: legg inn "
-                "'l10n_no_eristo.onboard_admin_secret' (må matche "
-                "admin-secreten som er satt på tjenesten)."
-            ))
-        return secret
-
-    @api.model
-    def request_customer_onboarding(self, company, orgnr, environment,
-                                    customer_name=None):
-        """Opprett en ny customer-rad i Eristo Token Service.
-
-        Returnerer dict m.:
-          - id: customers.id (UUID)
-          - name, orgnr, environment: som lagret
-          - api_key: PLAINTEXT — vises kun én gang, lagres aldri på vår side
-            (kun SHA-256-hash i DB)
-
-        Krever admin-secret som Bearer (hentes fra ir.config_parameter).
-        Kalles av customer-onboard-wizarden — IKKE av domene-modulene
-        (de bruker get_access_token + request_onboarding istedet).
-
-        Idempotens: hvis orgnr+environment finnes fra før returnerer
-        tjenesten 409 → vi reiser UserError m. eksisterende customer-id.
-        Roter ved å sette gammel kunderad status='disabled' i tjenestens
-        kunderegister før retry.
-        """
-        if not orgnr:
-            raise UserError(_("Onboarding krever orgnr."))
-        if environment not in ('test', 'prod'):
-            raise UserError(_(
-                "Ugyldig environment '%(e)s'. Forventet 'test' eller 'prod'.",
-                e=environment,
-            ))
-
-        url = self._eristo_onboard_customer_url(company)
-        admin_secret = self._eristo_admin_secret()
-        body = {
-            'name': customer_name or company.name,
-            'orgnr': orgnr,
-            'environment': environment,
-        }
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(body).encode('utf-8'),
-            method='POST',
-            headers={
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {admin_secret}',
-            },
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                return json.loads(resp.read())
-        except urllib.error.HTTPError as e:
-            err_body = e.read().decode()[:1000]
-            _logger.error(
-                "Eristo customer-onboard error %s: %s", e.code, err_body,
-            )
-            if e.code == 401:
-                raise UserError(_(
-                    "Admin-secret avvist av Eristo Token Service. "
-                    "Sjekk at 'l10n_no_eristo.onboard_admin_secret' i "
-                    "System Parameters matcher admin-secreten som er satt "
-                    "på tjenesten."
-                ))
-            if e.code == 409:
-                # Tjenesten returnerer {error: customer_exists, customer_id, detail}
-                try:
-                    payload = json.loads(err_body)
-                except ValueError:
-                    payload = {}
-                raise UserError(_(
-                    "Kunde med orgnr %(o)s finnes allerede i %(e)s-miljø "
-                    "(customer_id=%(cid)s). For å rotere nøkkelen: sett "
-                    "gammel kunderad status='disabled' i tjenestens "
-                    "kunderegister og kjør onboarding på nytt.",
-                    o=orgnr, e=environment,
-                    cid=payload.get('customer_id', '?'),
-                ))
-            if e.code == 400:
-                raise UserError(_(
-                    "Onboarding-forespørsel avvist:\n%(body)s",
-                    body=err_body,
-                ))
-            raise UserError(_(
-                "Eristo customer-onboard feilet (HTTP %(code)s).\n%(body)s",
-                code=e.code, body=err_body,
-            ))
-        except (urllib.error.URLError, socket.timeout) as e:
-            raise UserError(_(
-                "Eristo Onboard Service ikke tilgjengelig: %(err)s",
-                err=str(e)[:300],
-            ))
 
     @api.model
     def request_onboarding(self, company, scopes, party_orgnr=None):
@@ -402,6 +327,29 @@ class L10nNoEristoService(models.AbstractModel):
             if e.code == 401:
                 raise UserError(_(
                     "Eristo Token Service: ugyldig eller deaktivert API-key."
+                ))
+            if e.code == 403:
+                # Typisk party_orgnr-override utenfor test-miljø, der
+                # tjenestens egen kropp forklarer hvorfor. Koden tas med:
+                # en 403 fra et mellomledd har HTML-kropp, og da er
+                # statuslinja det eneste holdepunktet.
+                raise UserError(_(
+                    "Onboarding avvist av tjenesten (HTTP %(code)s):"
+                    "\n%(body)s",
+                    code=e.code, body=err_body,
+                ))
+            if e.code == 404:
+                # Tjenesten kan ha onboarding-flaten stengt mot offentlig
+                # nett (nginx svarer 404 uten å røpe at endepunktet
+                # finnes). Uten denne grenen fikk brukeren «HTTP 404» med
+                # en HTML-kropp og ingen anelse om hva som var galt.
+                raise UserError(_(
+                    "Onboarding-endepunktet er ikke tilgjengelig på "
+                    "%(url)s.\n\nTjenesten eksponerer det ikke mot "
+                    "internett, eller URL-en peker feil. Kontakt "
+                    "leverandøren — aktivering av scopes må da gjøres "
+                    "på tjenesten.",
+                    url=url,
                 ))
             raise UserError(_(
                 "Eristo onboarding-service feilet (HTTP %(code)s).\n%(body)s",

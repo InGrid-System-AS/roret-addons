@@ -28,12 +28,6 @@
                          render'er ikke pålitelig som synlige knapper i
                          Odoo 19 (ble usynlig på Roret AS-test). -->
                     <div class="mt16">
-                        <button name="%(action_l10n_no_eristo_customer_onboard_wizard)d"
-                                string="Onboard hos Eristo"
-                                type="action"
-                                class="btn-primary"
-                                invisible="l10n_no_eristo_api_key"
-                                groups="base.group_system"/>
                         <button name="action_l10n_no_test_eristo_connection"
                                 string="Test Eristo-forbindelse"
                                 type="object"

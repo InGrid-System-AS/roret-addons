@@ -30,6 +30,57 @@ Versjonsnumrene betyr:
 `scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
 oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
 
+## v2.0.0 — 2026-07-27
+
+MAJOR fordi releasen har en **Krever handling**-seksjon: lesehjelpen over
+sier at MINOR er trygg å bumpe blindt, og det stemmer ikke her. En kunde
+som følger tabellen ville tatt oppgraderingen uten å rotere secreten.
+
+**Krever handling**
+
+- Modulen lagrer ikke lenger tjenestens admin-secret. System-parameteren
+  `l10n_no_eristo.onboard_admin_secret` **slettes** ved oppgradering, og
+  knappen «Onboard hos Eristo» er fjernet fra selskapsskjemaet.
+
+  Grunnen: den secreten er hovednøkkelen til hele kunderegisteret — den
+  kan opprette og endre hvilken som helst kunde, ikke bare din. En
+  Odoo-admin med server-action-rettigheter kunne lese den ut av
+  `ir.config_parameter`. Samme resonnement som holder virksomhets-
+  sertifikatet utenfor Odoo-prosessen.
+
+  **Har du hatt en gyldig verdi der, be leverandøren rotere den.**
+  Slettingen lukker lagringen, ikke eventuell tidligere eksponering.
+
+  Onboarding av nye selskaper gjøres nå av leverandøren direkte mot
+  tjenesten, og du får API-key utlevert. Det er ingen praktisk endring
+  for deg: admin-flaten (`/onboard-customer`, `/admin/*`) er uansett
+  ikke offentlig eksponert, så knappen kunne aldri fungere fra en Odoo
+  utenfor tjenestens eget nett — den ga en uforståelig feil i stedet.
+
+  Oppgraderingen er en vanlig `-u l10n_no_eristo_base`.
+
+**Nytt**
+
+- Aktivering av scopes fra din egen Odoo virker nå mot tjenestens
+  offentlige flate. Endepunktet for systembruker-onboarding var tidligere
+  stengt utenfra, så «Aktiver»-knappen ga en uforståelig feil for kunder
+  med Odoo utenfor tjenestens nett. Ingen endring for deg utover at den
+  faktisk fungerer — kunden godkjenner fortsatt i Altinn-portalen.
+
+**Fikset**
+
+- Onboarding-feil forklarer nå hva som er galt. En stengt eller
+  feilkonfigurert flate ga «HTTP 404» etterfulgt av en rå HTML-side;
+  nå står det hvilken URL som ble forsøkt og hva du skal gjøre.
+  Tilsvarende for 403 (avvist forespørsel), som før falt til den
+  generiske grenen.
+
+**Gateway**
+
+- Ingen nye krav. Fungerer mot samme gateway-versjon som v1.2.0.
+  Forutsetter at tjenesten eksponerer `/onboard-systembruker` — gjelder
+  api.roret.no fra og med denne releasen.
+
 ## v1.2.0 — 2026-07-27
 
 **Fikset**
