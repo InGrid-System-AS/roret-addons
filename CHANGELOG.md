@@ -30,6 +30,70 @@ Versjonsnumrene betyr:
 `scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
 oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
 
+## v2.1.0 — 2026-08-05
+
+MINOR, ikke MAJOR: releasen har ingen **Krever handling**-seksjon. Den nye
+modulen er valgfri og installeres ikke av seg selv — gjør du ingenting,
+endrer ingenting seg, og taggen kan bumpes blindt slik lesehjelpen lover.
+(Til forskjell fra v2.0.0, der en systemparameter ble slettet ved
+oppgradering uansett hva du gjorde.)
+
+**Nytt**
+
+- `roret_mcp_kobling` — «Koble til Roret»-knapp for AI-agenten.
+
+  Erstatter prosedyren der en Roret-ansatt tok imot API-nøkkelen din og
+  registrerte den manuelt. Nå gjør du det selv, uten terminal og uten at
+  nøkkelen går gjennom hendene på en Roret-ansatt:
+
+  1. Be Roret-agenten koble til Odoo. Den gir deg en kode.
+  2. Åpne menyen **Roret → Koble til Roret** i din egen Odoo.
+  3. Lim inn koden og klikk «Koble til».
+
+  Modulen lager en API-nøkkel som tilhører **deg** — den som klikker —
+  sender den til Roret, og kaster klarteksten. Hos Roret lagres den
+  kryptert. Agenten får dermed
+  nøyaktig de rettighetene du selv har, og alt den gjør står på deg i
+  revisjonssporet. Det var hele grunnen til å endre flyten: da en
+  operatør håndterte nøkkelen, pekte sporet på den som tilfeldigvis
+  leverte den.
+
+  Installeres med `-i roret_mcp_kobling` når du vil ta den i bruk.
+  Avhenger kun av `base`, så den kjører på både Community og Odoo.sh.
+
+  **På Odoo.sh tåler koblingen rebuilds — på en branch med stabilt
+  domene.** Databasenavnet på staging- og dev-builds endres ved hver
+  rebuild, så modulen ber Roret om å slå opp navnet i runtime i stedet
+  for å stole på det som gjaldt da du koblet til. Det krever to ting:
+  `l10n_no_eristo_base` (den serverer oppslagsruten), og at
+  `web.base.url` peker på et custom-domene som overlever rebuilden —
+  peker den på selve build-adressen, bytter verten også, og da er det
+  ingenting å slå opp mot. Har du ingen av delene, brukes navnet fra
+  tilkoblingen, og det er riktig både for en instans med fast
+  databasenavn og for Odoo.sh-produksjon.
+
+  Menyen ligger på toppnivå og ikke under Innstillinger, med vilje:
+  Innstillinger krever administratorrettigheter, og hver ansatt skal
+  kunne koble seg selv.
+
+  **Koble fra** ligger på samme skjerm. Den sletter nøkkelen din, og
+  agenten mister tilgangen umiddelbart.
+
+  Konfigurasjon (systemparametere, endres av en administrator):
+
+  | Parameter | Default | Hva det gjør |
+  |---|---|---|
+  | `roret_mcp.endepunkt` | `https://mcp.roret.no` | Hvor nøkkelen sendes. Må være https. |
+  | `web.base.url` | (Odoos egen) | Adressen Roret når din Odoo på. Må være https og nåbar utenfra. |
+
+  Arbeidsdelingen er tilsiktet: administratoren bestemmer **hvor** nøkler
+  går, den enkelte bestemmer **om** hens egen nøkkel skal dit.
+
+**Gateway**
+
+- Ingen endring. Modulen snakker med Roret-agenten (`mcp.roret.no`), ikke
+  med compliance-gatewayen.
+
 ## v2.0.0 — 2026-07-27
 
 MAJOR fordi releasen har en **Krever handling**-seksjon: lesehjelpen over

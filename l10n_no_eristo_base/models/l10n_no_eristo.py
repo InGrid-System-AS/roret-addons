@@ -31,6 +31,41 @@ _logger = logging.getLogger(__name__)
 # f.eks. 501 fra /idporten-* når gatewayen mangler ID-porten-klient.
 GATEWAY_MIN_VERSION = '1.1.0'
 
+# Token-scopes gatewayen aktiverer PÅ EGET INITIATIV, uten at noen
+# onboarding-forespørsel nevner dem. De er de eneste verdiene fra
+# /eristo-ping vi tar inn i l10n_no_eristo_active_scopes.
+#
+# Hvitelista er nødvendig fordi pingens active_scopes er nøklet på
+# TOKEN-scope, mens modulenes aktivert-flagg leser ONBOARDING-nøkler, og
+# de to kolliderer: MVA onboardes som skatteetaten:mvamelding men får
+# token-scopet altinn:instances.write — som er nøyaktig
+# _ARSREGNSKAP_SCOPE. Tok vi inn hele lista, ville et MVA-only-selskap
+# fått l10n_no_arsregnskap_aktivert = True uten å ha den delegeringen.
+#
+# Et nytt følgescope i gatewayen krever derfor en linje her. Det er
+# tilsiktet: modulene skal vite hva de tar inn, ikke absorbere alt
+# gatewayen rapporterer.
+GATEWAY_FOLGESCOPES = frozenset({'digdir:dialogporten'})
+
+
+def folgescopes_fra_ping(active_scopes):
+    """Plukk ut følgescopene i et /eristo-ping-svar. Resten skal IKKE inn.
+
+    Pingens active_scopes er nøklet på TOKEN-scope, mens modulenes
+    aktivert-flagg leser ONBOARDING-nøkler. Overlappet er ikke tomt:
+    altinn:instances.write er både MVA-ens token-scope og årsregnskaps
+    onboarding-nøkkel, så en ufiltrert innlesing gir et MVA-only-selskap
+    l10n_no_arsregnskap_aktivert = True uten den delegeringen.
+
+    Begge skrivestiene (wizarden ved accepted, og «Test Eristo-
+    forbindelse») går gjennom denne, slik at filteret ikke kan gli fra
+    hverandre mellom dem.
+    """
+    return [
+        s for s in (str(x).strip() for x in (active_scopes or []))
+        if s in GATEWAY_FOLGESCOPES
+    ]
+
 
 def _versjon_tuple(versjon):
     """'1.2.0' -> (1, 2, 0). Ukjent/uparsebar form gir None."""

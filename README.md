@@ -4,6 +4,10 @@ Norsk MVA-melding, skattemelding og SAF-T for Odoo 19 — **Community og
 Enterprise/Odoo.sh** — med elektronisk innsending til Skatteetaten via
 Altinn 3 og ID-porten.
 
+Settet inneholder i tillegg `roret_mcp_kobling`, som kobler din Odoo til
+Roret-agenten. Den er ikke compliance og kan installeres uavhengig av
+resten.
+
 > **Dette repoet er en distribusjon.** Innholdet genereres automatisk fra
 > Rorets interne monorepo ved hver release — pull requests tas ikke imot her.
 > Feil og ønsker: kontakt Roret-support (eller åpne en issue her).
@@ -16,11 +20,20 @@ Altinn 3 og ID-porten.
 | `l10n_no_account_mvamelding_payment` | Valgfri bro: MVA-betaling (KID → pain.001) via OCA betalingsordre. Installeres automatisk der OCA bank-payment finnes |
 | `l10n_no_account_skattemelding` | Skattemelding for selskap: innsending via Altinn 3 |
 | `l10n_no_saft` | SAF-T Financial-eksport (lovpålagt) |
+| `l10n_no_account_mvamelding_payment_batch` | Samme bro for Enterprise/Odoo.sh: MVA-betaling via `account_batch_payment`. Installeres automatisk der den finnes |
 | `l10n_no_eristo_base` / `l10n_no_eristo_idporten` | Auth-laget mot Roret Compliance Gateway: Maskinporten/systembruker og ID-porten (BankID) |
+| `roret_mcp_kobling` | «Koble til Roret»-knapp: kobler din Odoo til Roret-agenten. Nøkkelen lages i din egen Odoo, tilhører din bruker, og kan trekkes tilbake av deg. Den lagres kryptert hos Roret. Avhenger kun av `base` |
 
 ## Forutsetninger
 
-- **Odoo 19** (Community eller Enterprise), norsk kontoplan (`l10n_no`).
+- **Odoo 19** (Community eller Enterprise) — gjelder alle modulene i settet.
+
+Resten av lista gjelder kun **compliance-modulene** (MVA, skattemelding,
+SAF-T). `roret_mcp_kobling` trenger ingen av dem: den avhenger kun av `base`,
+snakker med `mcp.roret.no` og ikke med compliance-gatewayen, og har ingen
+BankID-flyt. Den kan installeres alene.
+
+- Norsk kontoplan (`l10n_no`).
 - **Roret-kundeavtale**: innsendingen går via Roret Compliance Gateway
   (`https://api.roret.no`) og krever en API-nøkkel per organisasjon.
   Virksomhetssertifikatet driftes av Roret — du trenger ikke eget.
@@ -41,8 +54,18 @@ git add .gitmodules roret-addons && git commit -m "Roret-moduler <TAG>"
 Odoo.sh plukker opp undermapper automatisk. Selvhostet: legg katalogen i
 `addons_path`.
 
-Konfigurer deretter selskapet: **Innstillinger → Selskaper →
-Skatteetaten-tilkobling** — gateway-URL og API-nøkkelen fra Roret.
+Konfigurer deretter **compliance-modulene**: Innstillinger → Selskaper →
+Skatteetaten-tilkobling — gateway-URL og API-nøkkelen fra Roret. Dette
+krever administratorrettigheter og gjøres én gang per selskap.
+
+`roret_mcp_kobling` konfigureres **ikke** der. Den kobles av hver enkelt
+ansatt selv, fra **Roret → Koble til Roret**, med en engangskode agenten
+gir deg. Ingen administrator er involvert: nøkkelen lages i din egen Odoo,
+tilhører din bruker, og du kan koble fra igjen fra samme skjerm når som
+helst — forutsatt at `web.base.url` allerede peker på adressen dere
+faktisk bruker. Gjør den ikke det, stopper modulen tilkoblingen, og det
+parameteret kan bare en administrator rette. På Odoo.sh settes den
+riktig av seg selv; selvhostet er den verdt å sjekke først.
 
 ## Oppgradering
 

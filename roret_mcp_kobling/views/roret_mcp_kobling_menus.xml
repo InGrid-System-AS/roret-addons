@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Egen toppmeny, ikke under Innstillinger: hver ansatt skal kunne
+         koble SEG SELV til, og Innstillinger krever base.group_system.
+         Legger vi knappen der, må en administrator gjøre jobben for alle —
+         og da er vi tilbake til at nøkkelen tilhører feil menneske, som er
+         nøyaktig det #199 finnes for å rette. -->
+    <menuitem id="menu_roret_root"
+              name="Roret"
+              groups="base.group_user"
+              sequence="95"/>
+
+    <menuitem id="menu_roret_kobling"
+              name="Koble til Roret"
+              parent="menu_roret_root"
+              action="roret_mcp_kobling_action"
+              groups="base.group_user"
+              sequence="10"/>
+
+</odoo>

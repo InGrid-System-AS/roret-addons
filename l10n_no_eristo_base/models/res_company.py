@@ -8,6 +8,8 @@ gamle prefikset.
 from odoo import _, fields, models
 from odoo.exceptions import UserError
 
+from .l10n_no_eristo import folgescopes_fra_ping
+
 
 # Roret Compliance Gateway — felles kontrakt for Roret Cloud og modulkunder
 # (arkitekturbeslutning 7 / end-state). Eksisterende selskaper beholder sin
@@ -45,9 +47,14 @@ class ResCompany(models.Model):
         string="Aktiverte Eristo-scopes",
         copy=False,
         help="Liste av Maskinporten-scopes som er aktivert for selskapet "
-             "via Altinn-onboarding. Oppdateres automatisk av onboarding-"
-             "wizarden når kunden godkjenner i Altinn-portalen. Lagret som "
-             "JSONB-array i DB for å unngå komma-separat-string-skjørhet.",
+             "via Altinn-onboarding. Skrives av onboarding-wizarden når "
+             "kunden godkjenner i Altinn-portalen, og utvides av 'Test "
+             "Eristo-forbindelse' med følgescopes gatewayen aktiverer på "
+             "eget initiativ. Ingen av dem fjerner noe. Lista blander "
+             "onboarding-nøkler og token-scopes med vilje — for MVA er de "
+             "ulike — så oppslag skjer alltid på det navnet den enkelte "
+             "modulen kjenner. Lagret som JSONB-array i DB for å unngå "
+             "komma-separat-string-skjørhet.",
     )
     l10n_no_eristo_test_orgnr = fields.Char(
         string="Test-orgnr override",
@@ -78,6 +85,14 @@ class ResCompany(models.Model):
 
         For scope-spesifikk testing finnes egen "Test forbindelse"-knapp
         på skattemelding-record-formet.
+
+        MERK at knappen ikke er helt lesende: den UTVIDER selskapets
+        l10n_no_eristo_active_scopes med de FØLGESCOPENE gatewayen
+        aktiverer på eget initiativ (GATEWAY_FOLGESCOPES) — ikke med alle
+        token-scopene den rapporterer. Den fjerner aldri noe, så et
+        aktivert-flagg kan verken slås av eller på ved et uhell her. Se
+        kommentaren ved skrivingen under for hvorfor begge grensene
+        måtte trekkes.
         """
         self.ensure_one()
         if not self.env.user.has_group('base.group_system'):
@@ -92,6 +107,31 @@ class ResCompany(models.Model):
                 ', '.join(active_scopes) if active_scopes
                 else "(ingen scopes aktivert ennå)"
             )
+            # UTVIDER lista med gatewayens FØLGESCOPES — erstatter aldri,
+            # og tar aldri inn resten av active_scopes. To grunner, begge
+            # med produksjonskonsekvens:
+            #
+            #   Erstatning: pingen rapporterer TOKEN-scopes, mens
+            #   aktivert-flaggene leser ONBOARDING-nøkler. For MVA er de
+            #   ulike, så en erstatning ville slått av
+            #   l10n_no_mvamelding_aktivert og blokkert innsending — fra
+            #   en knapp som skal diagnostisere, ikke endre.
+            #
+            #   Ufiltrert union: altinn:instances.write er MVA-ens
+            #   token-scope OG årsregnskaps onboarding-nøkkel, så en
+            #   MVA-only-kunde ville fått årsregnskap falskt aktivert.
+            #
+            # Tillegget er likevel verdt det: det gjør følgescopes
+            # synlige uten å kjøre wizarden på nytt, og en re-kjøring er
+            # nettopp det som fyller kundens Altinn-innboks.
+            kjent = list(self.l10n_no_eristo_active_scopes or [])
+            if not isinstance(kjent, list):
+                kjent = []
+            sett = {str(s).strip() for s in kjent}
+            nye = [s for s in folgescopes_fra_ping(active_scopes)
+                   if s not in sett]
+            if nye:
+                self.l10n_no_eristo_active_scopes = kjent + nye
             # Hvilken tjeneste svarte? Vises alltid — «hvilken gateway
             # snakker jeg med» er det første spørsmålet ved feilsøking.
             versjon = result.get('gateway_version') or "(ukjent)"

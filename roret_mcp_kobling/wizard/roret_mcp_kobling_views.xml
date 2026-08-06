@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="roret_mcp_kobling_view_form" model="ir.ui.view">
+        <field name="name">roret.mcp.kobling.form</field>
+        <field name="model">roret.mcp.kobling</field>
+        <field name="arch" type="xml">
+            <form string="Koble til Roret">
+                <field name="er_koblet" invisible="1"/>
+                <div invisible="not er_koblet" class="alert alert-info" role="status">
+                    Denne Odoo-en er allerede koblet til Roret for din bruker.
+                    Limer du inn en ny kode, erstattes koblingen.
+                </div>
+                <p>
+                    Be Roret-agenten om å koble til Odoo. Den gir deg en kode
+                    som er gyldig i noen få minutter — lim den inn her.
+                </p>
+                <group>
+                    <field name="paringskode" placeholder="lim inn koden fra agenten"/>
+                </group>
+                <p class="text-muted">
+                    Vi lager en API-nøkkel som tilhører deg, og sender den til
+                    Roret. Nøkkelen vises aldri på skjermen og havner aldri i
+                    en logg; hos Roret lagres den kryptert. Agenten får
+                    tilgang til nøyaktig det du selv har tilgang til, og alt
+                    den gjør står på deg i loggen.
+                </p>
+                <footer>
+                    <button name="action_koble" type="object" string="Koble til"
+                            class="btn-primary" data-hotkey="q"/>
+                    <button name="action_koble_fra" type="object" string="Koble fra"
+                            class="btn-secondary" invisible="not er_koblet"
+                            confirm="Slette Roret-nøkkelen din? Agenten mister tilgangen til denne Odoo-en umiddelbart."/>
+                    <button string="Avbryt" class="btn-secondary"
+                            special="cancel" data-hotkey="x"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="roret_mcp_kobling_action" model="ir.actions.act_window">
+        <field name="name">Koble til Roret</field>
+        <field name="res_model">roret.mcp.kobling</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+</odoo>

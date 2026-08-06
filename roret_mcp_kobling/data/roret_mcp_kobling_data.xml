@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- noupdate: en kunde som peker modulen mot et annet Roret-endepunkt skal
+     ikke få det overskrevet ved neste modulopppgradering. -->
+<odoo noupdate="1">
+
+    <record id="param_roret_mcp_endepunkt" model="ir.config_parameter">
+        <field name="key">roret_mcp.endepunkt</field>
+        <field name="value">https://mcp.roret.no</field>
+    </record>
+
+</odoo>

@@ -18,8 +18,14 @@ Brukes via en action der modul-koden setter context:
 scopes_text er komma-separert string (Char-felt) — wizarden splitter
 og deduper internt før kall til platform-API.
 """
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
+
+from ..models.l10n_no_eristo import folgescopes_fra_ping
+
+_logger = logging.getLogger(__name__)
 
 
 _STATE_SELECTION = [
@@ -121,26 +127,78 @@ class L10nNoEristoOnboardingWizard(models.TransientModel):
         new_state = status if status in dict(_STATE_SELECTION) else 'error'
 
         if status == 'accepted':
-            # V1: active_scopes er nå Json-felt (liste).
-            # Merge inn nye scopes uten å miste eksisterende.
-            requested = [
-                s.strip() for s in (self.scopes_text or '').split(',')
-                if s.strip()
-            ]
-            current = self.company_id.l10n_no_eristo_active_scopes or []
-            if not isinstance(current, list):
-                current = []
-            current_set = {str(s).strip() for s in current}
-            for s in requested:
-                if s not in current_set:
-                    current.append(s)
-                    current_set.add(s)
-            self.company_id.l10n_no_eristo_active_scopes = current
+            self._sync_active_scopes()
             # V3: nullstill error_message ved suksess
             self.write({'state': new_state, 'error_message': False})
         else:
             self.state = new_state
         return self._reopen()
+
+    def _sync_active_scopes(self):
+        """Utvid selskapets scope-liste med de forespurte OG gatewayens.
+
+        Feltet bærer to vokabularer, og det er ikke et uhell:
+
+          * ONBOARDING-nøkler — det wizarden ber om, og det modulenes
+            aktivert-flagg leser. MVA onboardes som
+            skatteetaten:mvamelding.
+          * TOKEN-scopes — det gatewayen faktisk kan mint. For MVA er det
+            altinn:instances.write (tilgangspakken merverdiavgift), og
+            gatewayens /eristo-ping rapporterer KUN denne formen, siden
+            active_scopes utledes av scope_refs (store.py: `list(scope_refs)`).
+
+        For a-melding og skattekort er de to like, og forskjellen er
+        usynlig. For MVA er de ulike — og et flagg som
+        l10n_no_mvamelding_aktivert leser onboarding-nøkkelen. Ville vi
+        ERSTATTET lista med pingens svar, forsvant skatteetaten:mvamelding,
+        flagget ble False, og porten i l10n_no_mvamelding_submit ville
+        blokkert innsending med «ikke aktivert ennå» på et selskap som er
+        fullt aktivert. Derfor er dette additivt, aldri erstattende.
+
+        Pingen tilfører det forespørselen ikke kan uttrykke: følgescopes
+        gatewayen aktiverer på eget initiativ (a-melding gir
+        digdir:dialogporten, som ikke har noen Altinn-ressurs å be om og
+        derfor aldri kan stå i scopes_text). Feiler pingen, står vi igjen
+        med nøyaktig den gamle oppførselen — ikke noe tap.
+
+        Kun GATEWAY_FOLGESCOPES tas inn fra pingen, ikke hele svaret.
+        Resten av active_scopes er token-scopes som kolliderer med
+        onboarding-nøkler: altinn:instances.write er både MVA-ens
+        token-scope og årsregnskaps onboarding-nøkkel, så en ufiltrert
+        union ville slått årsregnskap falskt på for en MVA-only-kunde.
+        """
+        self.ensure_one()
+        company = self.company_id
+        navn = list(company.l10n_no_eristo_active_scopes or [])
+        if not isinstance(navn, list):
+            navn = []
+        sett = {str(s).strip() for s in navn}
+
+        def legg_til(kandidater):
+            for s in kandidater or []:
+                s = str(s).strip()
+                if s and s not in sett:
+                    navn.append(s)
+                    sett.add(s)
+
+        legg_til((self.scopes_text or '').split(','))
+        try:
+            svar = self.env['l10n.no.eristo.service'].ping(company)
+            legg_til(folgescopes_fra_ping(
+                (svar.get('customer') or {}).get('active_scopes')))
+        except Exception:
+            # Bevisst bred: på dette punktet ER delegeringen godkjent i
+            # Altinn, og pingen er kun et tillegg. Enhver feil her må
+            # degradere til de forespurte scopene, aldri velte
+            # accept-steget — da måtte kunden kjørt wizarden på nytt, og
+            # en re-kjøring lager en ny systembruker-forespørsel.
+            # ping() pakker HTTP/nett i UserError, men ikke ValueError
+            # fra json.loads (proxy-feilside med status 200).
+            _logger.warning(
+                "Kunne ikke hente active_scopes fra gatewayen for %s — "
+                "beholder de forespurte scopene.", company.name,
+                exc_info=True)
+        company.l10n_no_eristo_active_scopes = navn
 
     def action_open_altinn(self):
         """Åpne confirm_url i ny tab."""
