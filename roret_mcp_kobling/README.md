@@ -17,7 +17,7 @@ kode limes inn ------------>
                             <--- {"status": "ok"}   (aldri nøkkelen tilbake)
 ```
 
-Brukeren ber agenten om å koble til Odoo. Agenten kaller `connect_odoo`, som
+Brukeren ber agenten om å koble til Odoo. Agenten kaller `koble_til_odoo`, som
 utsteder en kode bundet til brukerens Keycloak-prinsipal. Koden limes inn her.
 Modulen minter en API-nøkkel som tilhører **den innloggede brukeren**, sender
 den til Roret, og kaster klarteksten.
@@ -57,9 +57,13 @@ Settings-bruker kan endre parameteret; enhver intern bruker kan koble seg til.
 ## Koble fra
 
 Samme skjerm. Sletter brukerens Roret-nøkkel, og koblingen er død umiddelbart —
-Roret har fortsatt en kryptert kopi, men en nøkkel som ikke finnes i denne basen
-autentiserer ingenting. Den døde raden hos Roret overskrives ved neste
-tilkobling; servervendt sletting er #226.
+en nøkkel som ikke finnes i denne basen autentiserer ingenting.
+
+**Dette er halve frakoblingen.** Raden hos Roret — kryptert kopi av nøkkelen,
+URL og brukernavn — tømmes ved å be agenten «koble fra Odoo»
+(`koble_fra_odoo` i MCP-en). Knappen her kan ikke gjøre det selv: den har
+ingenting å bevise hvem den er med, mens agent-verktøyet autoriseres av
+brukerens eget Keycloak-token. Kvitteringen minner om steget.
 
 ### Hvis tilkoblingen avbrytes på feil tidspunkt
 

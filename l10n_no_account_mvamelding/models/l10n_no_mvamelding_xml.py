@@ -18,6 +18,8 @@ Skatteetaten/mva-meldingen@master XSD-er 2026-06-05:
 
   mvaSpesifikasjonslinje: mvaKode, [spesifikasjon], [mvaKodeRegnskapsystem],
     [grunnlag], [sats], merverdiavgift, [merknad]
+    (merknad = xsd:choice { beskrivelse | utvalgtMerknad };
+     vi setter beskrivelse — se l10n_no_mvamelding_merknad.py)
 
   mvaMeldingInnsending (ns mvameldinginnsending:v1.0):
     norskIdentifikator(organisasjonsnummer)
@@ -32,6 +34,8 @@ import logging
 from lxml import etree
 
 from odoo import models
+
+from .l10n_no_mvamelding import MVA_KODER_MERKNADSPLIKT_VED_MOTSATT_FORTEGN
 
 _logger = logging.getLogger(__name__)
 
@@ -90,6 +94,10 @@ class L10nNoMvamelding(models.Model):
         _sub(periode_wrap, 'aar', ns, self.aar)
         _sub(grunnlag_skatt, 'fastsattMerverdiavgift', ns, fastsatt)
 
+        merknader = {
+            m.mva_kode: (m.beskrivelse or '').strip()
+            for m in self.merknad_ids
+        }
         for line in lines:
             spes = _sub(grunnlag_skatt, 'mvaSpesifikasjonslinje', ns)
             _sub(spes, 'mvaKode', ns, line['mva_kode'])
@@ -98,6 +106,12 @@ class L10nNoMvamelding(models.Model):
             if line.get('sats') is not None:
                 _sub(spes, 'sats', ns, line['sats'])
             _sub(spes, 'merverdiavgift', ns, line['merverdiavgift'])
+            # merknad er SIST i XSD-sekvensen (etter merverdiavgift), og er
+            # en xsd:choice — vi setter beskrivelse (fritekst).
+            beskrivelse = merknader.get(line['mva_kode'])
+            if beskrivelse:
+                merknad_el = _sub(spes, 'merknad', ns)
+                _sub(merknad_el, 'beskrivelse', ns, beskrivelse)
 
         # Tomt betalingsinformasjon-element (påkrevd i sekvensen ved innsending).
         _sub(root, 'betalingsinformasjon', ns)
@@ -108,6 +122,52 @@ class L10nNoMvamelding(models.Model):
         _sub(root, 'meldingskategori', ns, self.meldingskategori)
 
         return _serialize(root)
+
+    def _r021_koder_uten_merknad(self):
+        """mvaKoder i den GENERERTE XML-en som vil bli avvist på R021.
+
+        Vi leser den faktiske payloaden i stedet for å regne på nytt fra Tax
+        Report: det er den som sendes, og en stale XML skal ikke slippe unna
+        kontrollen. Betingelsen speiler Skatteetatens regel — fradragskode,
+        tomt grunnlag, positiv merverdiavgift, ingen merknad.
+        """
+        self.ensure_one()
+        if not self.mvamelding_xml:
+            return []
+        try:
+            root = etree.fromstring(self.mvamelding_xml.encode('utf-8'))
+        except etree.XMLSyntaxError:
+            # Ugyldig XML fanges av selve innsendingen; ikke gjett her.
+            return []
+
+        def q(tag):
+            return '{%s}%s' % (_NS_MVAMELDING, tag)
+
+        mangler = []
+        for spes in root.iter(q('mvaSpesifikasjonslinje')):
+            kode_el = spes.find(q('mvaKode'))
+            mva_el = spes.find(q('merverdiavgift'))
+            if kode_el is None or mva_el is None:
+                continue
+            kode = (kode_el.text or '').strip()
+            if kode not in MVA_KODER_MERKNADSPLIKT_VED_MOTSATT_FORTEGN:
+                continue
+            if spes.find(q('grunnlag')) is not None:
+                continue
+            try:
+                belop = int((mva_el.text or '0').strip())
+            except ValueError:
+                continue
+            if belop <= 0:
+                continue
+            merknad_el = spes.find(q('merknad'))
+            beskrivelse = (
+                merknad_el.find(q('beskrivelse')) if merknad_el is not None
+                else None
+            )
+            if beskrivelse is None or not (beskrivelse.text or '').strip():
+                mangler.append(kode)
+        return mangler
 
     def _build_konvolutt_xml(self):
         """Bygg mvaMeldingInnsending-konvolutt-XML."""

@@ -241,7 +241,7 @@ class TestKobling(TransactionCase):
         vakt som bare måler navn er fortsatt grønn mens en vanlig ansatt igjen
         ikke finner noe. (Review-funn på #236.)
 
-        **Begge ledd av stien voktes.** `connect_odoo` lover «Roret» → «Koble
+        **Begge ledd av stien voktes.** `koble_til_odoo` lover «Roret» → «Koble
         til Roret». At begge er synlige er ikke nok: gis menyvalget en annen
         forelder, er begge fortsatt synlige og roten fortsatt på toppnivå,
         mens kunden leter under «Roret» etter noe som ligger et annet sted.
@@ -271,7 +271,7 @@ class TestKobling(TransactionCase):
         self.assertEqual(
             valg.parent_id, rot,
             f"«{valg.name}» ligger ikke lenger under «{rot.name}» — guidingen "
-            "i connect_odoo lover nettopp den stien")
+            "i koble_til_odoo lover nettopp den stien")
 
         menyer = self.env['ir.ui.menu'].with_user(self.ansatt).load_menus(False)
         self.assertIn(
@@ -371,7 +371,7 @@ class TestKobling(TransactionCase):
             koble,
             f"skjemaet «{valg.name}» åpner har ingen action_koble-knapp — "
             f"knappene er {sorted(k for k in knapper if k)}. Guidingen i "
-            f"connect_odoo lover den.")
+            f"koble_til_odoo lover den.")
         self.assertEqual(
             koble.get('string'), "Koble til",
             f"knappen heter «{koble.get('string')}», ikke «Koble til» som "

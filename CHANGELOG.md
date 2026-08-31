@@ -30,6 +30,60 @@ Versjonsnumrene betyr:
 `scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
 oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
 
+## v2.2.0 — 2026-08-31
+
+MINOR: to feilrettinger i mva-melding, pluss det nye merknad-feltet de
+krevde. Ingen handling utover å bumpe taggen — modulversjonen er hevet,
+så oppgraderingen kjører av seg selv.
+
+Begge feilene ble avdekket ved første reelle produksjonskjøring av
+MVA-flyten (InGrid System AS og Eristo AS, 3. termin 2026).
+
+**Fikset**
+
+- **MVA-oppgjøret lot seg ikke bokføre for terminer med øre.**
+  Avrundingslinjen fikk feil fortegn, slik at bilaget summerte til
+  `2 × avrundingsdifferansen` i stedet for null og ble avvist med «The
+  entry is not balanced». Skatteetaten fastsetter i hele kroner mens
+  MVA-kontoene nesten alltid har øre, så feilen traff i praksis hver
+  eneste termin — den var usynlig fordi den eneste testen som bokførte
+  et oppgjør brukte en fikstur på eksakt 150 kr, der grenen aldri kjøres.
+  Dekket nå av tester i begge avrundingsretninger.
+
+- **Meldinger som tilbakefører inngående merverdiavgift ble avvist av
+  Skatteetaten.** Når en termins tilbakeføringer overstiger dens egne
+  fradrag, får fradragskoden motsatt fortegn, og Skatteetatens regel
+  **R021** krever da en merknad som forklarer hvorfor. Modulen kunne ikke
+  produsere `merknad`-elementet, så meldingen ble avvist med
+  alvorlighetsgrad `UGYLDIG_SKATTEMELDING` — den ble altså ikke fastsatt.
+  Typisk tilfelle: retting av uberettiget fradragsført MVA fra en
+  tidligere termin.
+
+**Nytt**
+
+- **Merknader per spesifikasjonslinje.** Ny fane «Merknader» på
+  mva-meldingen der du kan skrive en fritekstforklaring knyttet til en
+  bestemt mva-kode. Forklaringen sendes til Skatteetaten sammen med
+  linjen, og er formulert i selskapets navn — skriv den som du ville
+  forklart forholdet til en saksbehandler.
+
+- **R021 fanges før innsending.** «Send inn» stopper nå med en forklarende
+  melding hvis en linje mangler påkrevd merknad, i stedet for at du bruker
+  BankID på en innsending Skatteetaten garantert avviser. «Generer XML»
+  varsler allerede ved generering. Legger du merknaden inn etter at XML-en
+  er generert, sier meldingen fra at du må generere på nytt — merknaden er
+  ikke i payloaden før da.
+
+**Koble til Roret**
+
+Releasen tar også med endringer i `roret_mcp_kobling` som har landet siden
+v2.1.0:
+
+- Frakobling fjerner nå raden hos Roret, ikke bare nøkkelen i din egen Odoo.
+  Tømmingen skjer med `UPDATE` — tjenesten har ingen `DELETE`-grant.
+- MCP-verktøyene har fått norske navn (engelsk kode bak). Bruker du dem ved
+  navn fra en agent, heter frakoblingen nå `koble_fra_odoo`.
+
 ## v2.1.0 — 2026-08-05
 
 MINOR, ikke MAJOR: releasen har ingen **Krever handling**-seksjon. Den nye

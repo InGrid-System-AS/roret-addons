@@ -15,7 +15,7 @@ Her minter brukeren sin egen nøkkel med ett klikk, og den går rett til Roret.
 ## Flyten
 
     Agenten (Claude)                 Denne modulen              Roret MCP
-    connect_odoo ──► paringskode
+    koble_til_odoo ──► paringskode
                                      kode limes inn
                                      _generate(...)  server-side
                                      POST /onboard ─────────────► innløs kode
@@ -217,8 +217,18 @@ class RoretMcpKobling(models.TransientModel):
 
         Dette dreper koblingen umiddelbart og fullstendig: Roret har fortsatt
         en kryptert kopi av nøkkelen, men en nøkkel som ikke finnes i denne
-        basen autentiserer ingenting. Raden hos Roret blir liggende død til den
-        overskrives ved neste tilkobling — se #226 for servervendt sletting.
+        basen autentiserer ingenting.
+
+        **Denne knappen eier bare sin egen halvdel.** Raden hos Roret —
+        ciphertext, URL og brukernavn — tømmes av `koble_fra_odoo` i
+        MCP-en, som autoriseres av brukerens eget Keycloak-token (#226).
+        Raden slettes ikke: rollen har `UPDATE`, ikke `DELETE`.
+        Knappen her kan ikke gjøre det selv: den har ingenting å bevise med
+        hvem den er, og en sletting som bare tok imot en bruker-id ville latt
+        hvem som helst koble fra hvem som helst.
+
+        Kvitteringen sier derfor fra om den andre halvdelen, slik
+        `koble_fra_odoo` sier fra om denne.
         """
         self.ensure_one()
         nokler = self._mine_roret_nokler()
@@ -231,7 +241,9 @@ class RoretMcpKobling(models.TransientModel):
             self.env.user.login, self.env.uid)
         return self._kvittering(_(
             "Roret-nøkkelen din er slettet. Agenten kommer ikke lenger inn i "
-            "denne Odoo-en på dine vegne."))
+            "denne Odoo-en på dine vegne.\n\n"
+            "Roret kan fortsatt ha en kryptert kopi av den døde nøkkelen "
+            "lagret. Be agenten «koble fra Odoo» for å fjerne den også."))
 
     # ------------------------------------------------------------------
     # Innmat

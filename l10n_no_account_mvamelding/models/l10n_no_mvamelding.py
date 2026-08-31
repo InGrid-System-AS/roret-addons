@@ -53,6 +53,43 @@ MELDINGSKATEGORI_SELECTION = [
     ('alminnelig', 'Alminnelig'),
 ]
 
+# Lesbar tekst per mvaKode. Brukes både i spesifikasjons-HTML-en og som
+# etiketter i merknad-linjene, så de aldri kan drifte fra hverandre.
+MVA_KODE_LABELS = {
+        '1': 'Inngående MVA, fradrag (25%)',
+        '11': 'Inngående MVA, fradrag (15%)',
+        '12': 'Inngående MVA, fisk (11,11%)',
+        '13': 'Inngående MVA, fradrag (12%)',
+        '14': 'Innførsel varer, fradrag (25%)',
+        '15': 'Innførsel varer, fradrag (15%)',
+        '3': 'Utgående MVA, salg (25%)',
+        '31': 'Utgående MVA, salg (15%)',
+        '32': 'Utgående MVA, fisk (11,11%)',
+        '33': 'Utgående MVA, salg (12%)',
+        '5': 'Salg fritatt (0%)',
+        '6': 'Salg unntatt (0%)',
+        '51': 'Innenlands omsetning omvendt avgiftsplikt (0%)',
+        '52': 'Eksport (0%)',
+        '81': 'Innførsel varer m/fradrag (25%)',
+        '82': 'Innførsel varer u/fradrag (25%)',
+        '83': 'Innførsel varer m/fradrag (15%)',
+        '84': 'Innførsel varer u/fradrag (15%)',
+        '85': 'Innførsel varer (0%)',
+        '86': 'Tjenester fra utlandet m/fradrag (25%)',
+        '87': 'Tjenester fra utlandet u/fradrag (25%)',
+        '88': 'Tjenester fra utlandet m/fradrag (12%)',
+        '89': 'Tjenester fra utlandet u/fradrag (12%)',
+        '91': 'Klimakvoter/gull m/fradrag (25%)',
+        '92': 'Klimakvoter/gull u/fradrag (25%)',
+    }
+
+# R021: fradragskoder som KREVER merknad når linjen har motsatt fortegn
+# (tomt grunnlag og positiv merverdiavgift). Kodesettet er hentet ordrett
+# fra Skatteetatens regeldefinisjon — se docstringen i _koder_uten_merknad.
+MVA_KODER_MERKNADSPLIKT_VED_MOTSATT_FORTEGN = frozenset(
+    {'1', '11', '12', '13', '14', '15', '81', '83', '86', '88', '91'}
+)
+
 
 class L10nNoMvamelding(models.Model):
     _name = 'l10n.no.mvamelding'
@@ -128,6 +165,14 @@ class L10nNoMvamelding(models.Model):
     company_mvamelding_aktivert = fields.Boolean(
         related='company_id.l10n_no_mvamelding_aktivert',
         string="Selskap aktivert for MVA-melding",
+    )
+
+    merknad_ids = fields.One2many(
+        'l10n.no.mvamelding.merknad', 'mvamelding_id', string="Merknader",
+        copy=False,
+        help="Forklaringer knyttet til enkelt-spesifikasjonslinjer. "
+             "Skatteetaten KREVER merknad når en fradragskode har motsatt "
+             "fortegn (regel R021) — uten den avvises hele meldingen.",
     )
 
     # ---- validering ----
@@ -292,6 +337,26 @@ class L10nNoMvamelding(models.Model):
             "%(sum)s kr (%(n)d spesifikasjonslinjer).",
             sum=fastsatt, n=len(lines),
         ))
+        # Fang R021 med en gang, mens brukeren står i skjemaet — ikke først
+        # når 'Send inn' blokkerer.
+        mangler = self._koder_uten_merknad(lines)
+        if mangler:
+            koder = ', '.join(sorted(set(mangler), key=int))
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'type': 'warning',
+                    'title': _("Merknad kreves før innsending"),
+                    'message': _(
+                        "Fastsatt MVA %(sum)s kr. Mva-kode %(koder)s har "
+                        "motsatt fortegn og MÅ ha merknad (regel R021), "
+                        "ellers avvises meldingen. Legg den inn under "
+                        "«Merknader».", sum=fastsatt, koder=koder),
+                    'sticky': True,
+                    'next': {'type': 'ir.actions.client', 'tag': 'soft_reload'},
+                },
+            }
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
@@ -307,38 +372,45 @@ class L10nNoMvamelding(models.Model):
             },
         }
 
+    def _koder_uten_merknad(self, lines):
+        """mvaKoder i ``lines`` som krever merknad, men mangler den.
+
+        Skatteetatens regel R021 (alvorlighetsgrad UGYLDIG_SKATTEMELDING —
+        den AVVISER meldingen, den advarer ikke):
+
+            kodene(1, 11, 12, 13, 14, 15, 81, 83, 86, 88, 91)
+                .hvor { grunnlag er tomt og merverdiavgift > 0 }
+                .skal { ha merknad.beskrivelse eller merknad.utvalgtMerknad }
+
+        Motsatt fortegn oppstår når terminens tilbakeføringer av inngående
+        MVA overstiger dens egne fradrag — typisk ved retting av uberettiget
+        fradragsført MVA fra en tidligere termin. Da blir fradragslinjen
+        netto positiv, og Skatteetaten krever en forklaring på hvorfor.
+
+        Regelen har også unntak for `spesifikasjon` = TILBAKEFØRING/
+        TAPPÅKRAV/JUSTERING, men de kodene gjelder kapitalvarer og tap på
+        krav. Vi emitterer dem ikke, så merknad er eneste vei her.
+        """
+        self.ensure_one()
+        satt = {m.mva_kode for m in self.merknad_ids if m.beskrivelse}
+        return [
+            line['mva_kode'] for line in lines
+            if line['mva_kode'] in MVA_KODER_MERKNADSPLIKT_VED_MOTSATT_FORTEGN
+            # 'is None', ikke falsy: XML-byggeren emitterer <grunnlag>
+            # også når verdien er 0, og da hopper R021-sjekken på payloaden
+            # over linjen. Med 'not' ville denne advart om koder gaten ikke
+            # blokkerer — to kopier av samme regel som ikke var enige.
+            and line.get('grunnlag') is None
+            and line['merverdiavgift'] > 0
+            and line['mva_kode'] not in satt
+        ]
+
     def _build_linjer_oversikt_html(self, lines, fastsatt):
         """Bygg en lesbar HTML-tabell over mva-spesifikasjonslinjene, slik at
         brukeren kan verifisere tallene mot Tax Report før innsending.
         """
         self.ensure_one()
-        kode_labels = {
-            '1': 'Inngående MVA, fradrag (25%)',
-            '11': 'Inngående MVA, fradrag (15%)',
-            '12': 'Inngående MVA, fisk (11,11%)',
-            '13': 'Inngående MVA, fradrag (12%)',
-            '14': 'Innførsel varer, fradrag (25%)',
-            '15': 'Innførsel varer, fradrag (15%)',
-            '3': 'Utgående MVA, salg (25%)',
-            '31': 'Utgående MVA, salg (15%)',
-            '32': 'Utgående MVA, fisk (11,11%)',
-            '33': 'Utgående MVA, salg (12%)',
-            '5': 'Salg fritatt (0%)',
-            '6': 'Salg unntatt (0%)',
-            '51': 'Innenlands omsetning omvendt avgiftsplikt (0%)',
-            '52': 'Eksport (0%)',
-            '81': 'Innførsel varer m/fradrag (25%)',
-            '82': 'Innførsel varer u/fradrag (25%)',
-            '83': 'Innførsel varer m/fradrag (15%)',
-            '84': 'Innførsel varer u/fradrag (15%)',
-            '85': 'Innførsel varer (0%)',
-            '86': 'Tjenester fra utlandet m/fradrag (25%)',
-            '87': 'Tjenester fra utlandet u/fradrag (25%)',
-            '88': 'Tjenester fra utlandet m/fradrag (12%)',
-            '89': 'Tjenester fra utlandet u/fradrag (12%)',
-            '91': 'Klimakvoter/gull m/fradrag (25%)',
-            '92': 'Klimakvoter/gull u/fradrag (25%)',
-        }
+        kode_labels = MVA_KODE_LABELS
 
         def nok(v):
             if v is None:
