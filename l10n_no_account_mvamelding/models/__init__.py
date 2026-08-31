@@ -1,5 +1,6 @@
 from . import l10n_no_mvamelding
 from . import l10n_no_mvamelding_data
+from . import l10n_no_mvamelding_merknad
 from . import l10n_no_mvamelding_xml
 from . import l10n_no_mvamelding_validate
 from . import l10n_no_mvamelding_submit

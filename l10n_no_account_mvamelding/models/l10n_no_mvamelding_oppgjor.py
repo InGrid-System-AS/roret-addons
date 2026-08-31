@@ -141,8 +141,13 @@ class L10nNoMvamelding(models.Model):
                     "avrundingskonto (7740). Opprett kontoen først.",
                     diff=diff))
             lines.append(Command.create({
+                # -diff, ikke diff: summen av de øvrige linjene er allerede
+                # (-net_balance - fastsatt) == diff, så avrundingslinjen må
+                # være motsatt for at bilaget skal gå i null. Med 'diff' ble
+                # summen 2*diff, og bilaget lot seg aldri postere når
+                # terminen hadde øre-rest.
                 'account_id': rounding.id,
-                'balance': diff,
+                'balance': -diff,
                 'name': _("MVA-oppgjør avrunding (Skatteetaten fastsetter "
                           "hele kroner)"),
             }))

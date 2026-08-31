@@ -4,3 +4,5 @@ from . import test_receipt
 from . import test_submit_modes
 from . import test_tax_source_community
 from . import test_xml_builder
+from . import test_merknad
+from . import test_oppgjor_avrunding

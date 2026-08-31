@@ -120,6 +120,22 @@
                               invisible="not linjer_oversikt_html">
                             <field name="linjer_oversikt_html" readonly="1"/>
                         </page>
+                        <page string="Merknader" name="merknader">
+                            <div class="alert alert-info" role="alert">
+                                Skatteetaten KREVER merknad når en fradragskode
+                                har motsatt fortegn — altså når terminens
+                                tilbakeføringer av inngående merverdiavgift
+                                overstiger dens egne fradrag. Uten merknad
+                                avvises hele meldingen (regel R021).
+                                Merknaden er en forklaring i selskapets navn.
+                            </div>
+                            <field name="merknad_ids">
+                                <list editable="bottom">
+                                    <field name="mva_kode"/>
+                                    <field name="beskrivelse"/>
+                                </list>
+                            </field>
+                        </page>
                         <page string="MVA-melding XML" name="mvamelding_xml">
                             <field name="mvamelding_xml" widget="ace"
                                    options="{'mode': 'xml'}" readonly="1"/>

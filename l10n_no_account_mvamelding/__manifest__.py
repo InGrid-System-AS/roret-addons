@@ -1,6 +1,6 @@
 {
     'name': 'Norway - MVA-melding (VAT Return)',
-    'version': '19.0.4.0.0',
+    'version': '19.0.4.1.0',
     'category': 'Accounting/Localizations',
     'summary': 'MVA-melding-innsending til Skatteetaten via Altinn 3 (ID-porten)',
     'description': """

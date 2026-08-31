@@ -194,6 +194,39 @@ class L10nNoMvamelding(models.Model):
             ))
         if not (self.mvamelding_xml and self.konvolutt_xml):
             raise UserError(_("Mangler XML. Kjør 'Generer XML' først."))
+        # R021 avviser meldingen (UGYLDIG_SKATTEMELDING) når en fradragskode
+        # har motsatt fortegn uten merknad. Vi vet at den vil bli avvist, så
+        # vi stopper her — ellers koster feilen brukeren en BankID-runde og
+        # et avvisningsbrev fra Skatteetaten.
+        mangler = self._r021_koder_uten_merknad()
+        if mangler:
+            # Skill de to årsakene. Legger brukeren inn merknaden ETTER at
+            # XML-en ble generert, ligger den på recorden men ikke i
+            # payloaden — da er «legg inn en merknad» misvisende, for det
+            # har de nettopp gjort. Riktig råd er å regenerere.
+            har_merknad = {
+                m.mva_kode for m in self.merknad_ids
+                if (m.beskrivelse or '').strip()
+            }
+            stale = [k for k in mangler if k in har_merknad]
+            if stale:
+                raise UserError(_(
+                    "Merknaden for mva-kode %(koder)s er lagt inn, men "
+                    "XML-en ble generert før den. Klikk 'Generer XML' på "
+                    "nytt, så kommer merknaden med i innsendingen.",
+                    koder=', '.join(sorted(set(stale), key=int)),
+                ))
+            raise UserError(_(
+                "Mva-kode %(koder)s har motsatt fortegn (fradrag som netto "
+                "øker avgiften) uten merknad. Skatteetaten avviser meldingen "
+                "med regel R021 hvis den sendes slik.\n\n"
+                "Legg til en merknad under fanen «Merknader» som forklarer "
+                "hvorfor fortegnet er motsatt — typisk at terminen "
+                "tilbakefører inngående merverdiavgift som ikke var "
+                "fradragsberettiget, og at tilbakeføringen overstiger "
+                "terminens egne fradrag.",
+                koder=', '.join(sorted(set(mangler), key=int)),
+            ))
         # Forhåndssjekk aktivering — ellers ville innsendingen feilet senere
         # med en kryptisk token-/Altinn-feil. Gi en klar, handlingsrettet
         # melding. Aktivering (systembruker-delegeringen) kreves i begge
