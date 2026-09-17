@@ -22,7 +22,7 @@ senere uten schema-endring — feltet er en ren tilføyelse.
 Unik per (melding, mvaKode) fordi XSD-en har maxOccurs=1 på merknad: to
 merknader for samme kode ville ikke latt seg serialisere.
 """
-from odoo import fields, models
+from odoo import api, fields, models
 
 from .l10n_no_mvamelding import MVA_KODE_LABELS
 
@@ -36,7 +36,10 @@ _MERKNAD_KODE_SELECTION = [
 class L10nNoMvameldingMerknad(models.Model):
     _name = 'l10n.no.mvamelding.merknad'
     _description = 'Merknad på mva-melding-spesifikasjonslinje'
-    _order = 'mva_kode'
+    # Sorter numerisk, ikke leksikalsk: mva_kode er en Selection av
+    # STRENGER, så 'mva_kode' ville gitt 1, 11, 12, 13, 3, 31 … — i
+    # utakt med _MERKNAD_KODE_SELECTION, som sorterer key=int.
+    _order = 'mva_kode_sort'
 
     mvamelding_id = fields.Many2one(
         'l10n.no.mvamelding', string="MVA-melding", required=True,
@@ -48,6 +51,11 @@ class L10nNoMvameldingMerknad(models.Model):
     mva_kode = fields.Selection(
         _MERKNAD_KODE_SELECTION, string="MVA-kode", required=True,
         help="Spesifikasjonslinjen merknaden hører til.",
+    )
+    mva_kode_sort = fields.Integer(
+        string="Sortering", compute='_compute_mva_kode_sort', store=True,
+        help="Numerisk verdi av mva_kode, kun for sortering. Selection-"
+             "feltet er strenger, som ville sortert leksikalsk.",
     )
     beskrivelse = fields.Text(
         string="Beskrivelse", required=True,
@@ -70,3 +78,8 @@ class L10nNoMvameldingMerknad(models.Model):
         "Merknaden kan ikke være tom — Skatteetaten krever en faktisk "
         "forklaring.",
     )
+
+    @api.depends('mva_kode')
+    def _compute_mva_kode_sort(self):
+        for merknad in self:
+            merknad.mva_kode_sort = int(merknad.mva_kode or 0)

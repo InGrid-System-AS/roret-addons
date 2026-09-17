@@ -12,8 +12,8 @@ Bruker `from odoo.tools import float_compare` for floating-point-safety.
 """
 from datetime import date
 
-from odoo.exceptions import UserError
-from odoo.tests import TransactionCase, tagged
+from odoo.exceptions import AccessError, UserError
+from odoo.tests import TransactionCase, new_test_user, tagged
 
 
 @tagged('post_install', '-at_install', 'l10n_no_account_skattemelding')
@@ -109,6 +109,90 @@ class TestClosingEntry(TransactionCase):
         })
         move.action_post()
         return move
+
+    # ---- Selskapskontekst ---------------------------------------------
+
+    def _regnskapsforer(self, selskaper):
+        """Ekte (ikke-super) bruker — ir.rule hoppes over under env.su.
+
+        NB: TransactionCase kjører som SUPERUSER (odoo/tests/common.py:
+        `cls.env = api.Environment(cls.cr, api.SUPERUSER_ID, {})`), og
+        ir.rule håndheves ikke da. Selskapsisolasjon kan derfor IKKE
+        testes med klassens eget env — den ville bestått uansett. Testene
+        under lager en ekte regnskapsfører for å faktisk treffe regelen.
+        """
+        return new_test_user(
+            self.env, login='regnskapsforer_selskapstest',
+            groups='account.group_account_manager',
+            company_id=selskaper[0].id,
+            company_ids=[(6, 0, selskaper.ids)],
+        )
+
+    def test_lukkebilag_er_utilgjengelig_fra_feil_selskap(self):
+        """ir.rule-en ER vakten — lukkebilaget kan ikke nås fra feil selskap.
+
+        Husmønsteret (besluttet 2026-08-31): selskapsisolasjon håndheves
+        STRUKTURELT av den globale ir.rule-en på meldingsmodellen, ikke av
+        en sjekk inne i hver action. `company_ids` i et ir.rule-domene er
+        `env.companies.ids` — de AKTIVE selskapene (ir_rule.py:49) — så en
+        skattemelding for et ikke-aktivt selskap er ikke lesbar i det hele
+        tatt, og knappen kan dermed ikke trykkes.
+
+        Derfor har lukkebilaget bevisst INGEN egen «bytt selskap»-vakt: en
+        slik vakt ville vært død kode. MVA-modulen hadde en kort periode
+        2026-08-31 nettopp en slik vakt fordi den manglet ir.rule-en;
+        regelen er nå lagt til der også, og vakten fjernet igjen.
+
+        Denne testen er kontrakten: fjernes ir.rule-en, blir lukkebilaget
+        nåbart fra feil selskap og testen faller.
+        """
+        sm = self._make_skattemelding()
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        bruker = self._regnskapsforer(self.company + annet)
+        Skattemelding = self.env['l10n.no.skattemelding'].with_user(
+            bruker).with_context(allowed_company_ids=annet.ids)
+
+        # Usynlig i søk ...
+        self.assertFalse(Skattemelding.search([('id', '=', sm.id)]))
+        # ... og ikke lesbar via direktelenke, så knappen aldri nås.
+        with self.assertRaises(AccessError):
+            Skattemelding.browse(sm.id).inntektsaar
+        # ... men synlig så snart selskapet er aktivt (motprøve: det er
+        # AKTIVT selskap som avgjør, ikke bare tildelt tilgang).
+        self.assertTrue(
+            Skattemelding.with_context(
+                allowed_company_ids=(self.company + annet).ids,
+            ).search([('id', '=', sm.id)]))
+
+    def test_lukkebilag_snevrer_inn_naar_flere_selskaper_er_aktive(self):
+        """`allowed_company_ids=company.ids` i oppslagene SNEVRER INN.
+
+        Lett å lese som et bypass, men er det motsatte: posten har allerede
+        passert ir.rule-en, så meldingens selskap ER aktivt. Med flere
+        aktive selskaper begrenser konteksten kontooppslagene til dette ene
+        selskapet, slik at delte kontoer fra søsterselskaper ikke trekkes
+        inn i lukkebilaget.
+        """
+        annet = self.env['res.company'].create({
+            'name': 'Søsterselskap AS',
+            'country_id': self.env.ref('base.no').id,
+        })
+        self.env.user.company_ids |= annet
+        # Samme NS 4102-kode i søsterselskapet — feil treff hvis oppslaget
+        # ikke snevres inn.
+        felle = self.env['account.account'].create({
+            'code': '8800', 'name': 'Årsresultat (søster)',
+            'account_type': 'expense',
+            'company_ids': [(4, annet.id)],
+        })
+        self._post_pl_move('2025-06-01', self.acc_7798, 6500.0, 0.0)
+        sm = self._make_skattemelding().with_context(
+            allowed_company_ids=(self.company + annet).ids)
+        sm.action_l10n_no_skattemelding_create_closing_entry()
+
+        kontoer = sm.closing_entry_id.line_ids.account_id
+        self.assertIn(self.acc_8800, kontoer)
+        self.assertNotIn(felle, kontoer)
 
     # ---- P1-1: Tegn-konvensjon ----------------------------------------
 

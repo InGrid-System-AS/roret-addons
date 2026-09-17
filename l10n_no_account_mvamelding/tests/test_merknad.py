@@ -1,14 +1,16 @@
 """Merknad på spesifikasjonslinje + R021-vakten.
 
-Fikstur er den EKTE produksjonssaken som avdekket hullet: Eristo AS
-3. termin 2026, der terminen tilbakefører 1 159,98 kr inngående MVA som
-ikke var fradragsberettiget (privat VOEC-faktura, velferd mval § 8-3 d,
-overtidsmat). Tilbakeføringen overstiger terminens egne fradrag på
-770,40 kr, så kode 1 får motsatt fortegn (+390 i meldingen).
+Fiksturen er formet etter den produksjonssaken som avdekket hullet
+(3. termin 2026): terminen tilbakefører 1 159,98 kr inngående MVA som ikke
+var fradragsberettiget (mval § 8-3), og tilbakeføringen overstiger
+terminens egne fradrag på 770,40 kr, så kode 1 får motsatt fortegn
+(+390 i meldingen).
 
 Skatteetaten avviste den innsendingen 2026-08-31 på regel R021 med
 alvorlighetsgrad UGYLDIG_SKATTEMELDING — meldingen ble IKKE fastsatt.
-Testene her er den regelen, kodet.
+Testene her er den regelen, kodet. (Hvilket selskap og hvilke bilag det
+gjaldt hører ikke hjemme i en distribuert testfil, jf. #319 — gjelder
+også kommentarene i fiksturen under.)
 """
 from unittest.mock import patch
 
@@ -41,8 +43,8 @@ class TestMvameldingMerknad(TransactionCase):
             'aar': 2026,
             'periode': '3',
         })
-        # Eristo 3. termin 2026, verbatim. TAX_1 er NEGATIV fordi
-        # tilbakeføringene overstiger fradragene i terminen.
+        # Tallene fra terminen som utløste R021-avvisningen. TAX_1 er
+        # NEGATIV fordi tilbakeføringene overstiger fradragene i terminen.
         cls.code_values = {
             'BASE_3': 606300.0, 'TAX_3': 151575.0,
             'TAX_1': -389.58,

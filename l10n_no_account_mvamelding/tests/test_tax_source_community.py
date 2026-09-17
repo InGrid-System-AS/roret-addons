@@ -10,8 +10,9 @@ oppgjørsbilag med 2740 i hele kroner. Betalingsordre-flyten (OCA) testes
 i bro-modulen l10n_no_account_mvamelding_payment — denne modulen (og
 dens tester) skal være kjørbar UTEN OCA installert (Produkt 2).
 """
+from odoo import Command
 from odoo.addons.account.tests.common import AccountTestInvoicingCommon
-from odoo.exceptions import UserError
+from odoo.exceptions import AccessError, UserError
 from odoo.tests import tagged
 
 
@@ -127,6 +128,181 @@ class TestTaxSourceCommunity(AccountTestInvoicingCommon):
         with self.assertRaises(UserError) as ctx:
             self.mva.action_bokfor_oppgjor()
         self.assertIn('allerede bokført', str(ctx.exception))
+
+    def test_mvamelding_er_utilgjengelig_fra_feil_selskap(self):
+        """ir.rule-en ER vakten — meldingen kan ikke nås fra feil selskap.
+
+        Husmønsteret (besluttet 2026-08-31, felles med skattemelding-
+        modulen): selskapsisolasjon håndheves STRUKTURELT av den globale
+        ir.rule-en på meldingsmodellen, ikke av sjekker inne i hver action.
+
+        Dette er regresjonstesten for produksjonsfeilen 2026-08-31.
+        MVA-modulen manglet regelen, så meldingen var synlig og klikkbar
+        fra feil selskap mens ALLE account.*-oppslagene bak knappene ble
+        filtrert bort av kjernens egne selskapsregler — og oppgjøret
+        diagnostiserte det som manglende kontoplan. Med regelen på plass
+        stopper det ett steg tidligere, med Odoos egen melding som
+        NAVNGIR selskapet man må bytte til.
+        """
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        self.env.user.company_ids = [Command.link(annet.id)]
+
+        # Selve feilen fra produksjon: kontoene FINNES, men er usynlige i
+        # feil selskapskontekst. Uten denne asserten kunne testen bestått
+        # fordi fixturen manglet kontoplan — altså av feil grunn.
+        domain = [
+            ('company_id', '=', self.company.id),
+            ('use_in_tax_closing', '=', True),
+            ('account_id', '!=', False),
+        ]
+        Rep = self.env['account.tax.repartition.line']
+        self.assertTrue(Rep.search_count(domain))
+        self.assertFalse(
+            Rep.with_context(allowed_company_ids=annet.ids)
+               .search_count(domain))
+
+        # Regelen skal stoppe det FØR knappen: meldingen er hverken
+        # synlig i lista eller lesbar via direktelenke.
+        Mva = self.env['l10n.no.mvamelding'].with_context(
+            allowed_company_ids=annet.ids)
+        self.assertFalse(Mva.search([('id', '=', self.mva.id)]))
+        with self.assertRaises(AccessError):
+            Mva.browse(self.mva.id).aar
+
+    def test_oppgjor_ok_naar_selskapet_er_ett_av_flere_aktive(self):
+        """Regelen skal ikke slå ut når selskapet ER blant de aktive.
+
+        Motprøven til testen over. `company_ids` i ir.rule-domenet er
+        env.companies.ids, altså ALLE aktive selskaper — ikke bare det
+        første. Oppgjøret skal derfor gå igjennom for en bruker som
+        kjører to selskaper aktive samtidig, som er normalflyten i et
+        konsern med felles regnskapsfører.
+        """
+        self._generate()
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        self.env.user.company_ids = [Command.link(annet.id)]
+        self.mva.with_context(
+            allowed_company_ids=(annet + self.company).ids,
+        ).action_bokfor_oppgjor()
+        self.assertEqual(self.mva.oppgjor_move_id.state, 'posted')
+
+    def test_merknad_er_utilgjengelig_fra_feil_selskap(self):
+        """Merknaden trenger EGEN regel — ir.rule cascader ikke.
+
+        Merknaden er en selvstendig modell med egen tabell, så regelen på
+        l10n.no.mvamelding beskytter den ikke. Uten sin egen regel ville
+        merknadene vært lesbare fra feil selskap selv om meldingen de
+        hører til ikke er det.
+
+        Innholdet er fritekst som forklarer selskapets avgiftsforhold til
+        Skatteetaten — typisk hvorfor et fradrag er tilbakeført. Det hører
+        ikke hjemme hos et søsterselskap.
+        """
+        merknad = self.env['l10n.no.mvamelding.merknad'].create({
+            'mvamelding_id': self.mva.id,
+            'mva_kode': '1',
+            'beskrivelse': "Tilbakeføring av uberettiget fradrag.",
+        })
+        # company_id er en LAGRET related fra meldingen — uten den ville
+        # domenet i regelen ikke hatt noe å treffe på.
+        self.assertEqual(merknad.company_id, self.company)
+
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        self.env.user.company_ids = [Command.link(annet.id)]
+
+        Merknad = self.env['l10n.no.mvamelding.merknad'].with_context(
+            allowed_company_ids=annet.ids)
+        self.assertFalse(Merknad.search([('id', '=', merknad.id)]))
+        with self.assertRaises(AccessError):
+            Merknad.browse(merknad.id).beskrivelse
+
+    def test_merknad_synlig_naar_selskapet_er_aktivt(self):
+        """Motprøven: regelen skal ikke skjule egne merknader."""
+        merknad = self.env['l10n.no.mvamelding.merknad'].create({
+            'mvamelding_id': self.mva.id,
+            'mva_kode': '1',
+            'beskrivelse': "Tilbakeføring av uberettiget fradrag.",
+        })
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        self.env.user.company_ids = [Command.link(annet.id)]
+
+        Merknad = self.env['l10n.no.mvamelding.merknad'].with_context(
+            allowed_company_ids=(annet + self.company).ids)
+        self.assertEqual(
+            Merknad.browse(merknad.id).beskrivelse,
+            "Tilbakeføring av uberettiget fradrag.")
+
+    def test_oppgjor_med_ore_rest_fra_flere_aktive_selskaper(self):
+        """Avrundingsstien, kjørt med «feil» selskap først blant de aktive.
+
+        ir.rule-en garanterer at meldingens selskap er BLANT de aktive — ikke
+        at det er `env.company`. Det betyr noe her: `code` på account.account
+        er company_dependent i Odoo 19 (`code_store`), og `_search_code`
+        resolves mot `env.company.root_id` (account_account.py:341).
+
+        Testen fastholder BÅDE mekanismen og utfallet:
+
+        1. Premisset — kodeoppslaget bommer med feil selskap aktivt. Uten
+           denne asserten ville resten stått uten begrunnelse.
+        2. Utfallet — oppgjøret går igjennom og avrundingslinjen havner på
+           MELDINGENS egen konto.
+
+        ÆRLIG OM DEKNINGEN: mutasjonstest viser at innsnevringen i
+        action_bokfor_oppgjor ikke kan observeres via denne stien i dag.
+        _l10n_no_get_rounding_account() faller tilbake på
+        ('name', '=', 'Rounding'), og `name` er IKKE selskapsavhengig — så
+        fallbacken finner kontoen selv når kodeoppslaget bommer. Innsnevringen
+        er derfor defense-in-depth her: den fjerner avhengigheten av en
+        fallback som forsvinner i det noen døper kontoen «Avrunding».
+        Premiss-asserten under er det som faktisk fanger regresjonen, ved å
+        låse mekanismen fast uavhengig av fallbacken.
+
+        Motprøven over når uansett ikke hit: fixturen der går opp i hele
+        kroner, så diff == 0 og avrundingsgrenen kjøres aldri.
+        """
+        # 1000,40 @ 25 % = 250,10 → øre-rest, så avrundingsgrenen kjøres
+        self._post_invoice('out_invoice', 1000.40, self.sale_tax_25,
+                           '2026-03-20')
+        self._generate()
+
+        annet = self.env['res.company'].create({'name': 'Annet Selskap AS'})
+        self.env.user.company_ids = [Command.link(annet.id)]
+
+        # 1. Premisset: samme søk, ulikt aktivt selskap, ulikt svar.
+        Acc = self.env['account.account']
+        kode_domene = [('code', '=', '7740'),
+                       ('company_ids', 'in', self.company.id)]
+        self.assertTrue(Acc.with_company(self.company).search(kode_domene))
+        self.assertFalse(
+            Acc.with_company(annet).search(kode_domene),
+            "code er company_dependent — oppslaget SKAL bomme fra feil "
+            "selskap. Slår denne feil, har Odoo endret semantikken og "
+            "innsnevringen i action_bokfor_oppgjor kan revurderes.")
+
+        # 2. Utfallet: annet FØRST ⇒ env.company = annet, den vonde konteksten.
+        self.mva.with_context(
+            allowed_company_ids=(annet + self.company).ids,
+        ).action_bokfor_oppgjor()
+
+        move = self.mva.oppgjor_move_id
+        self.assertEqual(move.state, 'posted')
+        rounding = self.mva._l10n_no_get_rounding_account()
+        linje = move.line_ids.filtered(lambda l: l.account_id == rounding)
+        self.assertTrue(
+            linje, "Avrundingslinjen mangler — oppslaget etter 7740 bommet")
+        self.assertIn(self.company, linje.account_id.company_ids)
+
+    def test_merknad_sorteres_numerisk(self):
+        """mva_kode er en Selection av strenger — leksikalsk sortering ville
+        gitt 1, 11, 13, 3, i utakt med Selection-rekkefølgen (key=int)."""
+        for kode in ('13', '3', '1', '11'):
+            self.env['l10n.no.mvamelding.merknad'].create({
+                'mvamelding_id': self.mva.id,
+                'mva_kode': kode,
+                'beskrivelse': "Forklaring for kode %s." % kode,
+            })
+        self.assertEqual(
+            self.mva.merknad_ids.mapped('mva_kode'), ['1', '3', '11', '13'])
 
     def test_core_only_ingen_oca_avhengighet(self):
         """Kjernens kontrakt (Produkt 2): modulen skal ikke kreve OCA.

@@ -19,6 +19,13 @@ from unittest.mock import patch
 from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase
 
+# Tjenesten logger hver HTTP-feil på ERROR før den oversetter den til en
+# UserError. Det er riktig i drift, men i testene er feilen selve poenget:
+# assertLogs hevder at linjen kommer, og holder den unna byggeloggen. Odoo.sh
+# markerer bygget «Test: Failed» på ERROR-linjer alene, uavhengig av
+# testresultatet (InGrid-System-AS/odoo#68).
+_SERVICE_LOGGER = 'odoo.addons.l10n_no_eristo_base.models.l10n_no_eristo'
+
 
 def _http_feil(kode, kropp=b"<html>404 Not Found (nginx)</html>"):
     """Bygg en HTTPError slik urllib faktisk kaster den."""
@@ -42,10 +49,12 @@ class TestOnboardingFeilmeldinger(TransactionCase):
 
     def _kall(self, kode, kropp=b"<html>404 Not Found (nginx)</html>"):
         with patch('urllib.request.urlopen',
-                   side_effect=_http_feil(kode, kropp)):
+                   side_effect=_http_feil(kode, kropp)), \
+                self.assertLogs(_SERVICE_LOGGER, level='ERROR') as logg:
             with self.assertRaises(UserError) as ctx:
                 self.service.request_onboarding(
                     self.company, ['skatteetaten:mvamelding'])
+        self.assertIn(str(kode), logg.output[0])
         return str(ctx.exception)
 
     def test_404_forklarer_at_flaten_ikke_er_eksponert(self):

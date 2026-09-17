@@ -11,8 +11,8 @@ og fortegnet der må være motsatt av `diff`, ellers går ikke bilaget i null:
 Med `avrunding = diff` blir summen 2·diff, og bilaget lar seg ikke postere
 for noen termin med øre-rest. Feilen overlevde fordi den eneste
 oppgjørstesten brukte en fikstur på eksakt 150 kr, der diff er 0 og grenen
-aldri kjøres. Verifisert i produksjon 2026-08-31: både Eristo (18 øre) og
-InGrid (52 øre) feilet med «The entry is not balanced».
+aldri kjøres. Verifisert i produksjon 2026-08-31 på to selskaper (18 og
+52 øre i rest), begge med «The entry is not balanced».
 
 Testene her dekker begge avrundingsretninger.
 """

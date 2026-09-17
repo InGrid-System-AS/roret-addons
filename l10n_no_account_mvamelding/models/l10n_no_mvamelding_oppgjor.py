@@ -27,6 +27,10 @@ Sikkerhetsvakter (portet fra Enterprise-utgaven):
     samme mønster som bank-broen).
   * Til gode (fastsatt < 0): oppgjør posteres (2740 debet) — Skatteetaten
     utbetaler selv (broen nekter også utbetaling).
+  * Selskapsisolasjon: håndheves STRUKTURELT av den globale ir.rule-en
+    på modellen (security/mvamelding_security.xml), ikke av sjekker her.
+    Er meldingens selskap ikke aktivt, er posten ikke lesbar, og
+    knappene under kan ikke nås. Samme mønster som skattemelding-modulen.
 """
 import logging
 
@@ -70,6 +74,21 @@ class L10nNoMvamelding(models.Model):
 
         _element, _value, date_from, date_to = self._periode_spec()
         company = self.company_id
+        # Snevre inn fra «alle aktive selskaper» til DETTE ene. To grunner:
+        #
+        # 1. `code` på account.account er company_dependent i Odoo 19
+        #    (`code_store`), og _search_code resolves mot env.company.root_id
+        #    (account_account.py:341). Med to selskaper aktive og «feil» først
+        #    ville ('code', '=', '7740') slått opp i søsterselskapets
+        #    kodetabell og bommet — brukeren fikk «fant ingen avrundingskonto
+        #    (7740)», samme klasse feildiagnose som ir.rule-en over fjerner.
+        #    ir.rule-en garanterer at selskapet er BLANT de aktive, ikke at
+        #    det er env.company.
+        # 2. Kontoer delt med søsterselskaper skal ikke kunne trekkes inn i
+        #    oppgjørsbilaget.
+        #
+        # Samme mønster som skattemelding-modulen (closing.py).
+        self = self.with_context(allowed_company_ids=company.ids)
         fastsatt = self.fastsatt_mva  # hele kroner (fra _collect_mva_lines)
 
         # MVA-kontoene: alle kontoer brukt av repartition-linjer med

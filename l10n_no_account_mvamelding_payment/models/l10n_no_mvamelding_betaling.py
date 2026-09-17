@@ -9,6 +9,7 @@ Sikkerhetsvakter (uendret):
   * Idempotens: betalingsordre-linjen opprettes aldri dobbelt (felt-vakt).
   * Til gode (fastsatt < 0): ingen utbetaling opprettes — Skatteetaten
     utbetaler selv.
+  * Selskapsisolasjon: kjernens ir.rule på l10n.no.mvamelding.
   * Oppgjørsbilaget må være postert og oppgjørslinjen åpen og lik
     betalingsbeløpet fra kvitteringen — ellers abort med klar melding.
 """

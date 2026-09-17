@@ -31,6 +31,7 @@ bankjournalen, og l10n_no_dnb_payments har egen pre-eksport-validering.
 Sikkerhetsvaktene er identiske med OCA-broen:
   * Idempotens: levende betaling for terminen blokkerer ny.
   * Til gode (fastsatt < 0): ingen utbetaling — Skatteetaten utbetaler selv.
+  * Selskapsisolasjon: kjernens ir.rule på l10n.no.mvamelding.
   * Oppgjørsbilaget må være postert, og oppgjørslinjen åpen og lik
     betalingsbeløpet fra kvitteringen — ellers abort med klar melding.
 

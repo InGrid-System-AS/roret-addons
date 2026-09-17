@@ -1,6 +1,6 @@
 {
     'name': 'Norway - MVA-melding (VAT Return)',
-    'version': '19.0.4.1.0',
+    'version': '19.0.4.2.0',
     'category': 'Accounting/Localizations',
     'summary': 'MVA-melding-innsending til Skatteetaten via Altinn 3 (ID-porten)',
     'description': """
@@ -62,6 +62,7 @@ bimånedlige terminer).
     ],
     'data': [
         'security/ir.model.access.csv',
+        'security/mvamelding_security.xml',
         'data/ir_cron_data.xml',
         'views/l10n_no_mvamelding_views.xml',
         'views/res_company_views.xml',

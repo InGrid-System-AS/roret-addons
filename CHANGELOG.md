@@ -30,6 +30,42 @@ Versjonsnumrene betyr:
 `scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
 oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
 
+## v2.2.1 — 2026-09-17
+
+PATCH: feilretting, ingen handling utover å bumpe taggen.
+`l10n_no_account_mvamelding` har hevet modulversjon (19.0.4.1.0 → 19.0.4.2.0),
+så oppgraderingen kjører av seg selv og legger inn de nye tilgangsreglene.
+
+**Fikset**
+
+- **MVA-oppgjøret feilet med «Fant ingen MVA-kontoer (use_in_tax_closing)
+  for … — er den norske kontoplanen installert?» selv om kontoplanen var i
+  orden.** Meldingen var synlig og klikkbar fra et annet selskap enn sitt
+  eget, mens tallgrunnlaget bak knappen fulgte Odoos vanlige selskapsregler
+  og var tomt derfra. Nå har MVA-meldingen og merknadene samme
+  selskapsregel som resten av regnskapet: de er synlige når meldingens
+  selskap er blant de aktive. Skjemaet lar seg dermed ikke åpne fra feil
+  selskap, og Odoos egen melding sier hvilket selskap du må bytte til.
+  Oppgjørsbilaget bruker i tillegg kun meldingens eget selskap ved
+  kontooppslag, så delte kontoer fra et søsterselskap kan ikke havne i det.
+
+- **Merknad-fanen sorterer mva-kodene numerisk** (1, 3, 11, 12 …), ikke som
+  tekst (1, 11, 12, 13, 3 …).
+
+**Nytt**
+
+- **Fasitfilene under `tests/golden/` følger ikke lenger med.** De er ekte
+  meldinger Rorets egne selskaper har sendt til Skatteetaten, og
+  distribusjonsrepoet er offentlig. Testen som bruker dem hopper over seg
+  selv hos deg; alle andre tester er med som før og kjører på egen Odoo
+  som før.
+
+- **Testene som med vilje utløser feilstier logger ikke lenger ERROR.**
+  Odoo.sh markerer et bygg rødt på ERROR-linjer alene, også når alle
+  tester er grønne. Feilmeldingstestene i `l10n_no_eristo_base` hevder nå
+  loggen i stedet for å slippe den gjennom, så et rødt Odoo.sh-bygg igjen
+  betyr at noe faktisk feilet.
+
 ## v2.2.0 — 2026-08-31
 
 MINOR: to feilrettinger i mva-melding, pluss det nye merknad-feltet de
