@@ -43,6 +43,9 @@ from ..models.l10n_no_eristo import (
     folgescopes_fra_ping,
 )
 
+_WIZARD_LOGGER = (
+    'odoo.addons.l10n_no_eristo_base.wizard.l10n_no_eristo_onboarding_wizard')
+
 
 def _urlopen_svar(payload):
     """Etterlign urllib-kontrakten ping() bruker: `with urlopen(...) as r`."""
@@ -217,8 +220,14 @@ class TestScopeSynkFraPing(TransactionCase):
             'company_id': self.company.id,
             'scopes_text': 'skatteetaten:innrapporteringamelding',
         })
-        with patch('urllib.request.urlopen', side_effect=OSError("nede")):
+        # Wizarden logger WARNING med traceback når pingen feiler. Det er
+        # riktig i drift, men Odoo.sh markerer bygget «Test: Failed» på en
+        # traceback i loggen uansett nivå (sett på v2.2.1-bumpen, 589
+        # tester grønne). assertLogs hevder linjen og holder den unna.
+        with patch('urllib.request.urlopen', side_effect=OSError("nede")), \
+                self.assertLogs(_WIZARD_LOGGER, level='WARNING') as logg:
             wizard._sync_active_scopes()
+        self.assertIn('active_scopes', logg.output[0])
         self.assertEqual(
             list(self.company.l10n_no_eristo_active_scopes or []),
             ['skatteetaten:innrapporteringamelding'],

@@ -30,6 +30,18 @@ Versjonsnumrene betyr:
 `scripts/eksporter_produkt2.sh` nekter å publisere en release som mangler
 oppføring her — en udokumentert oppgradering er en oppgradering ingen tør ta.
 
+## v2.2.2 — 2026-09-17
+
+PATCH: kun testkode, ingen handling.
+
+**Fikset**
+
+- **Odoo.sh markerte bygget «Test: Failed» selv med alle tester grønne.**
+  Én test i `l10n_no_eristo_base` lot wizardens advarsel med traceback gå
+  rett i byggeloggen, og Odoo.sh flagger enhver traceback. Testen hevder
+  nå advarselen i stedet. Med v2.2.1 og denne skal et Odoo.sh-bygg med
+  Roret-modulene stå grønt når testene er grønne.
+
 ## v2.2.1 — 2026-09-17
 
 PATCH: feilretting, ingen handling utover å bumpe taggen.
